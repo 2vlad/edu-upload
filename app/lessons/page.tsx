@@ -5,7 +5,16 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, CheckCircle, ArrowLeft } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { ChevronLeft, ChevronRight, CheckCircle, ArrowLeft, Edit2, Save, X } from "lucide-react"
 
 interface Lesson {
   id: string
@@ -24,6 +33,11 @@ export default function LessonsPage() {
   const [courseData, setCourseData] = useState<CourseData | null>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTitle, setEditedTitle] = useState("")
+  const [editedContent, setEditedContent] = useState("")
+  const [editedObjectives, setEditedObjectives] = useState<string[]>([])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -73,6 +87,58 @@ export default function LessonsPage() {
       localStorage.setItem("publishedCourse", JSON.stringify(courseData))
       router.push("/course")
     }
+  }
+
+  const handleCardClick = (lesson: Lesson) => {
+    setSelectedLesson(lesson)
+    setEditedTitle(lesson.title)
+    setEditedContent(lesson.content)
+    setEditedObjectives([...lesson.objectives])
+    setIsEditing(false)
+  }
+
+  const handleSave = () => {
+    if (!selectedLesson || !courseData) return
+
+    const updatedLessons = courseData.lessons.map((lesson) =>
+      lesson.id === selectedLesson.id
+        ? {
+            ...lesson,
+            title: editedTitle,
+            content: editedContent,
+            objectives: editedObjectives,
+          }
+        : lesson
+    )
+
+    const updatedCourse = {
+      ...courseData,
+      lessons: updatedLessons,
+    }
+
+    setCourseData(updatedCourse)
+    localStorage.setItem("courseData", JSON.stringify(updatedCourse))
+    
+    // Update selected lesson with new data
+    const updatedLesson = updatedLessons.find(l => l.id === selectedLesson.id)
+    if (updatedLesson) {
+      setSelectedLesson(updatedLesson)
+    }
+    setIsEditing(false)
+  }
+
+  const handleAddObjective = () => {
+    setEditedObjectives([...editedObjectives, "Новая цель"])
+  }
+
+  const handleRemoveObjective = (index: number) => {
+    setEditedObjectives(editedObjectives.filter((_, i) => i !== index))
+  }
+
+  const handleObjectiveChange = (index: number, value: string) => {
+    const updated = [...editedObjectives]
+    updated[index] = value
+    setEditedObjectives(updated)
   }
 
   if (!courseData) {
@@ -162,6 +228,7 @@ export default function LessonsPage() {
                   style={{
                     backgroundColor: index === 0 ? "oklch(0.94 0 0)" : "oklch(1 0 0)",
                   }}
+                  onClick={() => handleCardClick(lesson)}
                 >
                   <div className="flex-1 flex flex-col">
                     <h3 className="text-lg font-bold mb-3 line-clamp-2">
@@ -192,6 +259,129 @@ export default function LessonsPage() {
           </div>
         </div>
       </div>
+
+      {/* Lesson Edit Dialog */}
+      <Dialog open={!!selectedLesson} onOpenChange={(open) => !open && setSelectedLesson(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              {isEditing ? (
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  className="text-2xl font-bold border-0 p-0 focus:ring-0"
+                  placeholder="Название урока"
+                />
+              ) : (
+                <span className="text-2xl">{selectedLesson?.title}</span>
+              )}
+              <div className="flex gap-2">
+                {!isEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-[30px]"
+                  >
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Редактировать
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      className="rounded-[30px]"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Сохранить
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false)
+                        setEditedTitle(selectedLesson?.title || "")
+                        setEditedContent(selectedLesson?.content || "")
+                        setEditedObjectives(selectedLesson?.objectives || [])
+                      }}
+                      className="rounded-[30px]"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Отмена
+                    </Button>
+                  </>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Learning Objectives */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Цели обучения</h3>
+              {isEditing ? (
+                <div className="space-y-2">
+                  {editedObjectives.map((objective, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={objective}
+                        onChange={(e) => handleObjectiveChange(index, e.target.value)}
+                        className="flex-1"
+                        placeholder="Цель обучения"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveObjective(index)}
+                        className="text-destructive"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddObjective}
+                    className="rounded-[30px]"
+                  >
+                    Добавить цель
+                  </Button>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {selectedLesson?.objectives.map((objective, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2 text-muted-foreground">•</span>
+                      <span>{objective}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Content */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Содержание урока</h3>
+              {isEditing ? (
+                <Textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="min-h-[400px] font-mono text-sm"
+                  placeholder="Содержание урока в формате Markdown..."
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed">
+                    {selectedLesson?.content}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
