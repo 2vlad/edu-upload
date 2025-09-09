@@ -102,7 +102,7 @@ export default function LessonsPage() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={() => router.push("/")} className="rounded-[50px]">
+          <Button variant="ghost" onClick={() => router.push("/")} className="rounded-[30px]">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Upload
           </Button>
@@ -110,7 +110,7 @@ export default function LessonsPage() {
             <h1 className="text-3xl font-bold text-balance">{courseData.title}</h1>
             <p className="text-muted-foreground text-pretty">{courseData.description}</p>
           </div>
-          <Button onClick={handlePublish} className="rounded-[50px]">
+          <Button onClick={handlePublish} className="rounded-[30px]">
             <Eye className="w-4 h-4 mr-2" />
             Publish Course
           </Button>
@@ -127,7 +127,7 @@ export default function LessonsPage() {
                   size="sm"
                   onClick={prevLesson}
                   disabled={currentIndex === 0}
-                  className="rounded-[25px] bg-transparent"
+                  className="rounded-[30px] bg-transparent"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
@@ -136,7 +136,7 @@ export default function LessonsPage() {
                   size="sm"
                   onClick={nextLesson}
                   disabled={currentIndex === courseData.lessons.length - 1}
-                  className="rounded-[25px] bg-transparent"
+                  className="rounded-[30px] bg-transparent"
                 >
                   <ArrowRight className="w-4 h-4" />
                 </Button>
@@ -161,7 +161,7 @@ export default function LessonsPage() {
                         e.stopPropagation()
                         handleEdit(lesson.id)
                       }}
-                      className="rounded-[25px]"
+                      className="rounded-[30px]"
                     >
                       <Edit3 className="w-4 h-4" />
                     </Button>
@@ -192,24 +192,24 @@ export default function LessonsPage() {
                   <input
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full p-3 border rounded-[25px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full p-3 border rounded-[30px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Lesson title..."
                   />
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full h-64 p-3 border rounded-[25px] resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full h-64 p-3 border rounded-[30px] resize-none focus:outline-none focus:ring-2 focus:ring-primary"
                     placeholder="Edit lesson content..."
                   />
                   <div className="flex gap-2">
-                    <Button onClick={handleSaveEdit} size="sm" className="rounded-[25px]">
+                    <Button onClick={handleSaveEdit} size="sm" className="rounded-[30px]">
                       Save
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => setEditingLesson(null)}
                       size="sm"
-                      className="rounded-[25px]"
+                      className="rounded-[30px]"
                     >
                       Cancel
                     </Button>

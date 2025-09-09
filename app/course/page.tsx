@@ -76,7 +76,7 @@ export default function CoursePage() {
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => router.push("/lessons")} className="rounded-[50px]">
+              <Button variant="ghost" onClick={() => router.push("/lessons")} className="rounded-[30px]">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Edit Course
               </Button>
@@ -103,7 +103,7 @@ export default function CoursePage() {
                   <button
                     key={lesson.id}
                     onClick={() => setCurrentLesson(index)}
-                    className={`w-full text-left p-3 rounded-[25px] text-sm transition-colors ${
+                    className={`w-full text-left p-3 rounded-[30px] text-sm transition-colors ${
                       index === currentLesson ? "bg-primary text-primary-foreground" : "hover:bg-accent"
                     }`}
                   >
@@ -162,7 +162,7 @@ export default function CoursePage() {
                   variant="outline"
                   onClick={prevLesson}
                   disabled={currentLesson === 0}
-                  className="rounded-[50px] bg-transparent"
+                  className="rounded-[30px] bg-transparent"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Previous
@@ -173,7 +173,7 @@ export default function CoursePage() {
                     <Button
                       variant="outline"
                       onClick={() => markComplete(currentLessonData?.id)}
-                      className="rounded-[50px]"
+                      className="rounded-[30px]"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Mark Complete
@@ -183,7 +183,7 @@ export default function CoursePage() {
                   <Button
                     onClick={nextLesson}
                     disabled={currentLesson === courseData.lessons.length - 1}
-                    className="rounded-[50px]"
+                    className="rounded-[30px]"
                   >
                     Next
                     <ArrowRight className="w-4 h-4 ml-2" />

@@ -91,7 +91,7 @@ export default function HomePage() {
 
         <Card className="p-8 mb-8">
           <div
-            className={`border-2 border-dashed rounded-[50px] p-12 text-center transition-colors ${
+            className={`border-2 border-dashed rounded-[30px] p-12 text-center transition-colors ${
               isDragOver ? "border-primary bg-accent" : "border-border hover:border-primary/50"
             }`}
             onDragOver={handleDragOver}
@@ -104,7 +104,7 @@ export default function HomePage() {
 
             <input type="file" multiple accept=".pdf" onChange={handleFileSelect} className="hidden" id="file-upload" />
             <label htmlFor="file-upload">
-              <Button variant="outline" className="cursor-pointer rounded-[50px] bg-transparent" asChild>
+              <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
                 <span>Browse Files</span>
               </Button>
             </label>
@@ -122,7 +122,7 @@ export default function HomePage() {
             <h3 className="text-lg font-semibold mb-4">Selected Files ({files.length})</h3>
             <div className="space-y-3">
               {files.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-[25px]">
+                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-[30px]">
                   <div className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-primary" />
                     <span className="font-medium">{file.name}</span>
@@ -132,7 +132,7 @@ export default function HomePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => removeFile(index)}
-                    className="text-destructive hover:text-destructive rounded-[25px]"
+                    className="text-destructive hover:text-destructive rounded-[30px]"
                   >
                     Remove
                   </Button>
@@ -146,7 +146,7 @@ export default function HomePage() {
           <Button
             onClick={handleCreateCourse}
             disabled={files.length === 0 || isProcessing}
-            className="px-8 py-3 text-lg rounded-[50px]"
+            className="px-8 py-3 text-lg rounded-[30px]"
           >
             {isProcessing ? (
               "Creating Course..."
