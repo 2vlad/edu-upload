@@ -104,8 +104,8 @@ export default function HomePage() {
 
             <input type="file" multiple accept=".pdf" onChange={handleFileSelect} className="hidden" id="file-upload" />
             <label htmlFor="file-upload">
-              <Button variant="outline" className="cursor-pointer rounded-[50px] bg-transparent">
-                Browse Files
+              <Button variant="outline" className="cursor-pointer rounded-[50px] bg-transparent" asChild>
+                <span>Browse Files</span>
               </Button>
             </label>
           </div>
