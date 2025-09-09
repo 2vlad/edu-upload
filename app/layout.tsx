@@ -5,8 +5,8 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'PDF to Course Creator',
-  description: 'Transform your PDF documents into interactive educational courses with AI',
+  title: 'Создатель курсов из PDF',
+  description: 'Превратите PDF-документы в интерактивные образовательные курсы с помощью ИИ',
   generator: 'v0.app',
 }
 

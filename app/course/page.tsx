@@ -61,7 +61,7 @@ export default function CoursePage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your course...</p>
+          <p className="text-muted-foreground">Загрузка вашего курса...</p>
         </div>
       </div>
     )
@@ -78,12 +78,12 @@ export default function CoursePage() {
             <div className="flex items-center gap-4">
               <Button variant="ghost" onClick={() => router.push("/lessons")} className="rounded-[30px]">
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Edit Course
+                Редактировать курс
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-balance">{courseData.title}</h1>
                 <p className="text-sm text-muted-foreground">
-                  {completedLessons.size} of {courseData.lessons.length} lessons completed
+                  {completedLessons.size} из {courseData.lessons.length} уроков завершено
                 </p>
               </div>
             </div>
@@ -97,7 +97,7 @@ export default function CoursePage() {
           {/* Sidebar Navigation */}
           <div className="lg:col-span-1">
             <Card className="p-4 sticky top-6">
-              <h3 className="font-semibold mb-4">Course Progress</h3>
+              <h3 className="font-semibold mb-4">Прогресс курса</h3>
               <div className="space-y-2">
                 {courseData.lessons.map((lesson, index) => (
                   <button
@@ -128,7 +128,7 @@ export default function CoursePage() {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-3xl font-bold text-balance">{currentLessonData?.title}</h2>
                   <span className="text-sm text-muted-foreground">
-                    Lesson {currentLesson + 1} of {courseData.lessons.length}
+                    Урок {currentLesson + 1} из {courseData.lessons.length}
                   </span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
@@ -140,7 +140,7 @@ export default function CoursePage() {
               </div>
 
               <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">Learning Objectives</h3>
+                <h3 className="text-lg font-semibold mb-3">Цели обучения</h3>
                 <ul className="space-y-2 text-muted-foreground">
                   {currentLessonData?.objectives.map((objective, idx) => (
                     <li key={idx} className="flex items-start gap-2">
@@ -165,7 +165,7 @@ export default function CoursePage() {
                   className="rounded-[30px] bg-transparent"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Previous
+                  Назад
                 </Button>
 
                 <div className="flex gap-3">
@@ -176,7 +176,7 @@ export default function CoursePage() {
                       className="rounded-[30px]"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark Complete
+                      Отметить выполненным
                     </Button>
                   )}
 
@@ -185,7 +185,7 @@ export default function CoursePage() {
                     disabled={currentLesson === courseData.lessons.length - 1}
                     className="rounded-[30px]"
                   >
-                    Next
+                    Далее
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>

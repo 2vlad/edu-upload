@@ -73,7 +73,7 @@ export default function HomePage() {
       router.push("/lessons")
     } catch (error) {
       console.error("Error creating course:", error)
-      setError(error instanceof Error ? error.message : "An error occurred while creating the course")
+      setError(error instanceof Error ? error.message : "Произошла ошибка при создании курса")
     } finally {
       setIsProcessing(false)
     }
@@ -83,9 +83,9 @@ export default function HomePage() {
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">Create Your Course from PDFs</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">Создайте курс из PDF-файлов</h1>
           <p className="text-lg text-muted-foreground text-pretty">
-            Upload your PDF materials and let AI transform them into structured, engaging lessons
+            Загрузите PDF-материалы, и ИИ превратит их в структурированные увлекательные уроки
           </p>
         </div>
 
@@ -99,13 +99,13 @@ export default function HomePage() {
             onDrop={handleDrop}
           >
             <Upload className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">Drop your PDF files here</h3>
-            <p className="text-muted-foreground mb-6">or click to browse and select files</p>
+            <h3 className="text-xl font-semibold mb-2">Перетащите PDF-файлы сюда</h3>
+            <p className="text-muted-foreground mb-6">или нажмите, чтобы выбрать файлы</p>
 
             <input type="file" multiple accept=".pdf" onChange={handleFileSelect} className="hidden" id="file-upload" />
             <label htmlFor="file-upload">
               <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
-                <span>Browse Files</span>
+                <span>Выбрать файлы</span>
               </Button>
             </label>
           </div>
@@ -119,7 +119,7 @@ export default function HomePage() {
 
         {files.length > 0 && (
           <Card className="p-6 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Selected Files ({files.length})</h3>
+            <h3 className="text-lg font-semibold mb-4">Выбранные файлы ({files.length})</h3>
             <div className="space-y-3">
               {files.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-[30px]">
@@ -134,7 +134,7 @@ export default function HomePage() {
                     onClick={() => removeFile(index)}
                     className="text-destructive hover:text-destructive rounded-[30px]"
                   >
-                    Remove
+                    Удалить
                   </Button>
                 </div>
               ))}
@@ -149,10 +149,10 @@ export default function HomePage() {
             className="px-8 py-3 text-lg rounded-[30px]"
           >
             {isProcessing ? (
-              "Creating Course..."
+              "Создание курса..."
             ) : (
               <>
-                Create Course
+                Создать курс
                 <ArrowRight className="w-5 h-5 ml-2" />
               </>
             )}

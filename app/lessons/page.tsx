@@ -90,7 +90,7 @@ export default function LessonsPage() {
       <div className="min-h-screen bg-background p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your course...</p>
+          <p className="text-muted-foreground">Загрузка вашего курса...</p>
         </div>
       </div>
     )
@@ -104,7 +104,7 @@ export default function LessonsPage() {
         <div className="flex items-center justify-between mb-8">
           <Button variant="ghost" onClick={() => router.push("/")} className="rounded-[30px]">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Upload
+            Назад к загрузке
           </Button>
           <div className="text-center">
             <h1 className="text-3xl font-bold text-balance">{courseData.title}</h1>
@@ -112,7 +112,7 @@ export default function LessonsPage() {
           </div>
           <Button onClick={handlePublish} className="rounded-[30px]">
             <Eye className="w-4 h-4 mr-2" />
-            Publish Course
+            Опубликовать курс
           </Button>
         </div>
 
@@ -120,7 +120,7 @@ export default function LessonsPage() {
           {/* Lesson Cards */}
           <div className="lg:col-span-2">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Lessons Overview</h2>
+              <h2 className="text-xl font-semibold">Обзор уроков</h2>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -167,7 +167,7 @@ export default function LessonsPage() {
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium">Learning Objectives:</p>
+                    <p className="text-muted-foreground text-sm font-medium">Цели обучения:</p>
                     <ul className="text-muted-foreground text-sm space-y-1">
                       {lesson.objectives.slice(0, 2).map((objective, idx) => (
                         <li key={idx} className="text-pretty">
@@ -177,7 +177,7 @@ export default function LessonsPage() {
                     </ul>
                   </div>
                   <div className="mt-4 text-xs text-muted-foreground">
-                    Lesson {index + 1} of {courseData.lessons.length}
+                    Урок {index + 1} из {courseData.lessons.length}
                   </div>
                 </Card>
               ))}
@@ -193,17 +193,17 @@ export default function LessonsPage() {
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     className="w-full p-3 border rounded-[30px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Lesson title..."
+                    placeholder="Название урока..."
                   />
                   <textarea
                     value={editContent}
                     onChange={(e) => setEditContent(e.target.value)}
                     className="w-full h-64 p-3 border rounded-[30px] resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Edit lesson content..."
+                    placeholder="Редактировать содержание урока..."
                   />
                   <div className="flex gap-2">
                     <Button onClick={handleSaveEdit} size="sm" className="rounded-[30px]">
-                      Save
+                      Сохранить
                     </Button>
                     <Button
                       variant="outline"
@@ -211,7 +211,7 @@ export default function LessonsPage() {
                       size="sm"
                       className="rounded-[30px]"
                     >
-                      Cancel
+                      Отмена
                     </Button>
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export default function LessonsPage() {
                     </p>
                   </div>
                   <div className="border-t pt-4">
-                    <h4 className="font-medium mb-2">Learning Objectives:</h4>
+                    <h4 className="font-medium mb-2">Цели обучения:</h4>
                     <ul className="space-y-1 text-sm text-muted-foreground">
                       {currentLesson?.objectives.map((objective, idx) => (
                         <li key={idx} className="text-pretty">

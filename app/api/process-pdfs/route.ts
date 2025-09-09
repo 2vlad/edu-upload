@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Check if API key is configured
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your .env.local file." },
+        { error: "Ключ API OpenAI не настроен. Пожалуйста, добавьте OPENAI_API_KEY в файл .env.local." },
         { status: 500 }
       )
     }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll("files") as File[]
 
     if (!files || files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 })
+      return NextResponse.json({ error: "Файлы не предоставлены" }, { status: 400 })
     }
 
     // Extract text from all PDFs
@@ -88,6 +88,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(courseStructure)
   } catch (error) {
     console.error("Error processing PDFs:", error)
-    return NextResponse.json({ error: "Failed to process PDFs" }, { status: 500 })
+    return NextResponse.json({ error: "Не удалось обработать PDF-файлы" }, { status: 500 })
   }
 }
