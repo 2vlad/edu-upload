@@ -12,6 +12,7 @@ export default function HomePage() {
   const [files, setFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -47,6 +48,7 @@ export default function HomePage() {
     if (files.length === 0) return
 
     setIsProcessing(true)
+    setError(null)
 
     try {
       const formData = new FormData()
@@ -59,19 +61,19 @@ export default function HomePage() {
         body: formData,
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error("Failed to process PDFs")
+        throw new Error(data.error || "Failed to process PDFs")
       }
 
-      const courseData = await response.json()
-
       // Store course data for the lessons page
-      localStorage.setItem("courseData", JSON.stringify(courseData))
+      localStorage.setItem("courseData", JSON.stringify(data))
 
       router.push("/lessons")
     } catch (error) {
       console.error("Error creating course:", error)
-      // Handle error - could show a toast notification
+      setError(error instanceof Error ? error.message : "An error occurred while creating the course")
     } finally {
       setIsProcessing(false)
     }
@@ -108,6 +110,12 @@ export default function HomePage() {
             </label>
           </div>
         </Card>
+
+        {error && (
+          <Card className="p-4 mb-8 border-destructive bg-destructive/10">
+            <p className="text-destructive text-sm">{error}</p>
+          </Card>
+        )}
 
         {files.length > 0 && (
           <Card className="p-6 mb-8">

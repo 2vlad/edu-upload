@@ -9,21 +9,31 @@ This is a Next.js 14 educational course creation application that transforms PDF
 ## Development Commands
 
 ```bash
-# Install dependencies
-pnpm install
+# Install dependencies (use npm if pnpm not available)
+npm install
 
 # Run development server
-pnpm dev
+npm run dev
 
 # Build for production
-pnpm build
+npm run build
 
 # Start production server
-pnpm start
+npm start
 
 # Run linting
-pnpm lint
+npm run lint
 ```
+
+## Environment Setup
+
+Create a `.env.local` file in the project root with:
+
+```
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+Get your API key from https://console.groq.com/keys
 
 ## Architecture
 

@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
-import { groq } from "@ai-sdk/groq"
+import { createGroq } from "@ai-sdk/groq"
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+})
 
 // Simple PDF text extraction (in production, use a proper PDF parser)
 async function extractTextFromPDF(file: File): Promise<string> {
@@ -31,6 +35,14 @@ async function extractTextFromPDF(file: File): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if API key is configured
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json(
+        { error: "Groq API key not configured. Please add GROQ_API_KEY to your .env.local file." },
+        { status: 500 }
+      )
+    }
+
     const formData = await request.formData()
     const files = formData.getAll("files") as File[]
 
