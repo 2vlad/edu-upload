@@ -89,7 +89,7 @@ export default function LessonsPage() {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-[1200px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button 
@@ -116,14 +116,14 @@ export default function LessonsPage() {
         </div>
       </div>
 
-      {/* Lessons Carousel */}
-      <div className="flex-1 flex items-center justify-center py-12 px-6">
-        <div className="relative max-w-7xl w-full">
+      {/* Lessons Carousel - Full Width */}
+      <div className="flex-1 flex items-center py-12">
+        <div className="relative w-full">
           {/* Navigation Arrows */}
           {canScrollLeft && (
             <button
               onClick={scrollLeft}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
+              className="absolute left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
               aria-label="Предыдущий урок"
             >
               <ChevronLeft className="w-5 h-5 text-muted-foreground" />
@@ -133,17 +133,17 @@ export default function LessonsPage() {
           {canScrollRight && (
             <button
               onClick={scrollRight}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
+              className="absolute right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
               aria-label="Следующий урок"
             >
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
           )}
 
-          {/* Scrollable Container */}
+          {/* Scrollable Container - Full Width */}
           <div 
             ref={scrollContainerRef}
-            className="overflow-x-auto scrollbar-hide pb-4"
+            className="overflow-x-auto scrollbar-hide px-6 pb-4"
             style={{
               scrollbarWidth: "none",
               msOverflowStyle: "none",
