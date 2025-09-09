@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
-import { createGroq } from "@ai-sdk/groq"
+import { createOpenAI } from "@ai-sdk/openai"
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 })
 
 // Simple PDF text extraction (in production, use a proper PDF parser)
@@ -36,9 +36,9 @@ async function extractTextFromPDF(file: File): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     // Check if API key is configured
-    if (!process.env.GROQ_API_KEY) {
+    if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
-        { error: "Groq API key not configured. Please add GROQ_API_KEY to your .env.local file." },
+        { error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your .env.local file." },
         { status: 500 }
       )
     }
@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
 
     const combinedText = allText.join("\n\n---\n\n")
 
-    // Use Groq to generate structured lessons
+    // Use OpenAI to generate structured lessons
     const { object: courseStructure } = await generateObject({
-      model: groq("llama-3.1-70b-versatile"),
+      model: openai("gpt-4o"),
       prompt: `
         Convert the following text into a structured course with 3-10 lessons. Each lesson should be no more than one A4 page of content (approximately 300-400 words).
         
