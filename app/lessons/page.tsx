@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ArrowRight, Edit3, Eye } from "lucide-react"
+import { ChevronLeft, ChevronRight, CheckCircle, ArrowLeft } from "lucide-react"
 
 interface Lesson {
   id: string
@@ -21,50 +22,49 @@ interface CourseData {
 
 export default function LessonsPage() {
   const [courseData, setCourseData] = useState<CourseData | null>(null)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [editingLesson, setEditingLesson] = useState<string | null>(null)
-  const [editContent, setEditContent] = useState("")
-  const [editTitle, setEditTitle] = useState("")
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
   useEffect(() => {
-    const storedCourseData = localStorage.getItem("courseData")
-    if (!storedCourseData) {
-      router.push("/")
-      return
-    }
-
-    try {
-      const parsedData = JSON.parse(storedCourseData) as CourseData
-      setCourseData(parsedData)
-    } catch (error) {
-      console.error("Error parsing course data:", error)
+    const stored = localStorage.getItem("courseData")
+    if (stored) {
+      setCourseData(JSON.parse(stored))
+    } else {
       router.push("/")
     }
   }, [router])
 
-  const handleEdit = (lessonId: string) => {
-    const lesson = courseData?.lessons.find((l) => l.id === lessonId)
-    if (lesson) {
-      setEditingLesson(lessonId)
-      setEditContent(lesson.content)
-      setEditTitle(lesson.title)
+  useEffect(() => {
+    const checkScroll = () => {
+      if (scrollContainerRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+        setCanScrollLeft(scrollLeft > 0)
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+      }
+    }
+
+    checkScroll()
+    const container = scrollContainerRef.current
+    container?.addEventListener("scroll", checkScroll)
+    window.addEventListener("resize", checkScroll)
+
+    return () => {
+      container?.removeEventListener("scroll", checkScroll)
+      window.removeEventListener("resize", checkScroll)
+    }
+  }, [courseData])
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -340, behavior: "smooth" })
     }
   }
 
-  const handleSaveEdit = () => {
-    if (editingLesson && courseData) {
-      const updatedCourseData = {
-        ...courseData,
-        lessons: courseData.lessons.map((lesson) =>
-          lesson.id === editingLesson ? { ...lesson, content: editContent, title: editTitle } : lesson,
-        ),
-      }
-      setCourseData(updatedCourseData)
-      localStorage.setItem("courseData", JSON.stringify(updatedCourseData))
-      setEditingLesson(null)
-      setEditContent("")
-      setEditTitle("")
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 340, behavior: "smooth" })
     }
   }
 
@@ -75,167 +75,120 @@ export default function LessonsPage() {
     }
   }
 
-  const nextLesson = () => {
-    if (courseData) {
-      setCurrentIndex((prev) => Math.min(prev + 1, courseData.lessons.length - 1))
-    }
-  }
-
-  const prevLesson = () => {
-    setCurrentIndex((prev) => Math.max(prev - 1, 0))
-  }
-
   if (!courseData) {
     return (
-      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Загрузка вашего курса...</p>
+          <p className="text-muted-foreground mb-4">Загрузка...</p>
         </div>
       </div>
     )
   }
 
-  const currentLesson = courseData.lessons[currentIndex]
-
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={() => router.push("/")} className="rounded-[30px]">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Назад к загрузке
-          </Button>
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-balance">{courseData.title}</h1>
-            <p className="text-muted-foreground text-pretty">{courseData.description}</p>
-          </div>
-          <Button onClick={handlePublish} className="rounded-[30px]">
-            <Eye className="w-4 h-4 mr-2" />
-            Опубликовать курс
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Lesson Cards */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">Обзор уроков</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={prevLesson}
-                  disabled={currentIndex === 0}
-                  className="rounded-[30px] bg-transparent"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={nextLesson}
-                  disabled={currentIndex === courseData.lessons.length - 1}
-                  className="rounded-[30px] bg-transparent"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                </Button>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-card">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => router.push("/")} 
+                className="rounded-[30px]"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">{courseData.title}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{courseData.description}</p>
               </div>
             </div>
+            <Button 
+              onClick={handlePublish} 
+              className="rounded-[30px] bg-primary hover:bg-primary/90"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Опубликовать курс
+            </Button>
+          </div>
+        </div>
+      </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {/* Lessons Carousel */}
+      <div className="flex-1 flex items-center justify-center py-12 px-6">
+        <div className="relative max-w-7xl w-full">
+          {/* Navigation Arrows */}
+          {canScrollLeft && (
+            <button
+              onClick={scrollLeft}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-12 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
+              aria-label="Предыдущий урок"
+            >
+              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
+          
+          {canScrollRight && (
+            <button
+              onClick={scrollRight}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-12 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
+              aria-label="Следующий урок"
+            >
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
+
+          {/* Scrollable Container */}
+          <div 
+            ref={scrollContainerRef}
+            className="overflow-x-auto scrollbar-hide pb-4"
+            style={{
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}
+          >
+            <style jsx>{`
+              div::-webkit-scrollbar {
+                display: none;
+              }
+            `}</style>
+            <div className="flex gap-4" style={{ width: "max-content" }}>
               {courseData.lessons.map((lesson, index) => (
-                <Card
-                  key={lesson.id}
-                  className={`p-6 cursor-pointer transition-all hover:shadow-md ${
-                    index === currentIndex ? "ring-2 ring-primary" : ""
-                  }`}
-                  onClick={() => setCurrentIndex(index)}
+                <Card 
+                  key={lesson.id} 
+                  className="w-[320px] h-[420px] p-6 flex flex-col hover:shadow-lg transition-shadow cursor-pointer"
+                  style={{
+                    backgroundColor: index === 0 ? "oklch(0.94 0 0)" : "oklch(1 0 0)",
+                  }}
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-lg text-balance">{lesson.title}</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleEdit(lesson.id)
-                      }}
-                      className="rounded-[30px]"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium">Цели обучения:</p>
-                    <ul className="text-muted-foreground text-sm space-y-1">
-                      {lesson.objectives.slice(0, 2).map((objective, idx) => (
-                        <li key={idx} className="text-pretty">
-                          • {objective}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="mt-4 text-xs text-muted-foreground">
-                    Урок {index + 1} из {courseData.lessons.length}
+                  <div className="flex-1 flex flex-col">
+                    <h3 className="text-lg font-bold mb-3 line-clamp-2">
+                      {lesson.title}
+                    </h3>
+                    
+                    <div className="mb-4">
+                      <p className="text-sm font-medium text-muted-foreground mb-2">Цели обучения:</p>
+                      <ul className="space-y-1">
+                        {lesson.objectives.slice(0, 3).map((objective, idx) => (
+                          <li key={idx} className="text-sm text-muted-foreground flex items-start">
+                            <span className="mr-2">•</span>
+                            <span className="line-clamp-2">{objective}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="mt-auto">
+                      <p className="text-sm text-muted-foreground line-clamp-4 mb-4">
+                        {lesson.content}
+                      </p>
+                    </div>
                   </div>
                 </Card>
               ))}
             </div>
-          </div>
-
-          {/* Lesson Content */}
-          <div className="lg:col-span-1">
-            <Card className="p-6 sticky top-6">
-              {editingLesson === currentLesson?.id ? (
-                <div className="space-y-4">
-                  <input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full p-3 border rounded-[30px] font-semibold focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Название урока..."
-                  />
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full h-64 p-3 border rounded-[30px] resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Редактировать содержание урока..."
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={handleSaveEdit} size="sm" className="rounded-[30px]">
-                      Сохранить
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setEditingLesson(null)}
-                      size="sm"
-                      className="rounded-[30px]"
-                    >
-                      Отмена
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 text-balance">{currentLesson?.title}</h3>
-                  <div className="prose prose-sm max-w-none mb-6">
-                    <p className="text-foreground leading-relaxed text-pretty whitespace-pre-wrap">
-                      {currentLesson?.content}
-                    </p>
-                  </div>
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-2">Цели обучения:</h4>
-                    <ul className="space-y-1 text-sm text-muted-foreground">
-                      {currentLesson?.objectives.map((objective, idx) => (
-                        <li key={idx} className="text-pretty">
-                          • {objective}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </Card>
           </div>
         </div>
       </div>
