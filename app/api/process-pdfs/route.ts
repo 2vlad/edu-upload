@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { generateObject } from "ai"
 import { createOpenAI } from "@ai-sdk/openai"
+import { z } from "zod"
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -70,30 +71,18 @@ export async function POST(request: NextRequest) {
         Text to convert:
         ${combinedText}
       `,
-      schema: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          description: { type: "string" },
-          lessons: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                title: { type: "string" },
-                content: { type: "string" },
-                objectives: {
-                  type: "array",
-                  items: { type: "string" },
-                },
-              },
-              required: ["id", "title", "content", "objectives"],
-            },
-          },
-        },
-        required: ["title", "description", "lessons"],
-      },
+      schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        lessons: z.array(
+          z.object({
+            id: z.string(),
+            title: z.string(),
+            content: z.string(),
+            objectives: z.array(z.string()),
+          })
+        ),
+      }),
     })
 
     return NextResponse.json(courseStructure)
