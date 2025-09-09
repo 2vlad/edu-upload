@@ -7,31 +7,26 @@ const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-// Simple PDF text extraction (in production, use a proper PDF parser)
+// Actual PDF text extraction using pdf-parse
 async function extractTextFromPDF(file: File): Promise<string> {
-  // For MVP, we'll simulate PDF text extraction
-  // In production, use libraries like pdf-parse or pdf2pic
-  const fileName = file.name.toLowerCase()
-
-  // Simulate different content based on filename for demo
-  if (fileName.includes("marketing")) {
-    return `Marketing Fundamentals
+  try {
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     
-    Chapter 1: Understanding Your Audience
-    Marketing is about connecting with people who need your product or service. The first step is understanding who your target audience is, what they care about, and where they spend their time.
+    // Dynamic import to avoid issues with server-side modules
+    const pdfParse = (await import('pdf-parse')).default
     
-    Chapter 2: Building Your Brand
-    Your brand is more than just a logo. It's the entire experience customers have with your business. This includes your messaging, visual identity, and customer service.
+    // Parse the PDF
+    const data = await pdfParse(buffer)
     
-    Chapter 3: Digital Marketing Channels
-    Today's marketing landscape includes social media, email marketing, content marketing, and paid advertising. Each channel has its strengths and ideal use cases.`
+    // Return the extracted text
+    return data.text || "Не удалось извлечь текст из PDF файла"
+  } catch (error) {
+    console.error("Error parsing PDF:", error)
+    // Return a fallback message if parsing fails
+    return `Не удалось извлечь текст из файла ${file.name}. Пожалуйста, убедитесь, что файл не поврежден и содержит текст.`
   }
-
-  return `Course Content
-  
-  This document contains valuable information that can be transformed into structured learning materials. The content covers various topics and concepts that will be organized into digestible lessons for optimal learning outcomes.
-  
-  Key concepts include foundational principles, practical applications, and advanced techniques. Each section builds upon previous knowledge to create a comprehensive learning experience.`
 }
 
 export async function POST(request: NextRequest) {
@@ -60,26 +55,32 @@ export async function POST(request: NextRequest) {
     const { object: courseStructure } = await generateObject({
       model: openai("gpt-4o"),
       prompt: `
-        Convert the following text into a structured course with 3-10 lessons. Each lesson should be no more than one A4 page of content (approximately 300-400 words).
+        Преобразуй следующий текст из PDF документов в структурированный образовательный курс с 3-10 уроками.
         
-        Create lessons that:
-        - Follow a logical sequence
-        - Are engaging and educational
-        - Include practical examples where possible
-        - Have clear learning objectives
+        Каждый урок должен:
+        - Содержать 300-400 слов (примерно одна страница A4)
+        - Следовать логической последовательности
+        - Быть увлекательным и образовательным
+        - Включать практические примеры, где это возможно
+        - Иметь четкие учебные цели
         
-        Text to convert:
+        ВАЖНО: Используй ТОЛЬКО информацию из предоставленного текста. Не добавляй информацию, которой нет в исходном материале.
+        Создавай уроки на основе реального содержания документов.
+        
+        Текст для преобразования:
         ${combinedText}
+        
+        Ответ должен быть на русском языке.
       `,
       schema: z.object({
-        title: z.string(),
-        description: z.string(),
+        title: z.string().describe("Название курса на русском языке"),
+        description: z.string().describe("Описание курса на русском языке"),
         lessons: z.array(
           z.object({
-            id: z.string(),
-            title: z.string(),
-            content: z.string(),
-            objectives: z.array(z.string()),
+            id: z.string().describe("Уникальный идентификатор урока"),
+            title: z.string().describe("Название урока на русском языке"),
+            content: z.string().describe("Содержание урока на русском языке"),
+            objectives: z.array(z.string()).describe("Учебные цели на русском языке"),
           })
         ),
       }),
