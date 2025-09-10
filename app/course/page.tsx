@@ -4,7 +4,16 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, ArrowRight, BookOpen, CheckCircle } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { ArrowLeft, ArrowRight, BookOpen, CheckCircle, Edit2, Save, X, Copy } from "lucide-react"
 
 interface Lesson {
   id: string
@@ -23,6 +32,11 @@ export default function CoursePage() {
   const [courseData, setCourseData] = useState<CourseData | null>(null)
   const [currentLesson, setCurrentLesson] = useState(0)
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set())
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedTitle, setEditedTitle] = useState("")
+  const [editedContent, setEditedContent] = useState("")
+  const [editedObjectives, setEditedObjectives] = useState<string[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -54,6 +68,55 @@ export default function CoursePage() {
     if (currentLesson > 0) {
       setCurrentLesson((prev) => prev - 1)
     }
+  }
+
+  const openEditModal = () => {
+    const lesson = courseData?.lessons[currentLesson]
+    if (lesson) {
+      setEditedTitle(lesson.title)
+      setEditedContent(lesson.content)
+      setEditedObjectives([...lesson.objectives])
+      setIsEditModalOpen(true)
+      setIsEditing(false)
+    }
+  }
+
+  const handleSave = () => {
+    if (!courseData) return
+
+    const updatedLessons = courseData.lessons.map((lesson, index) =>
+      index === currentLesson
+        ? {
+            ...lesson,
+            title: editedTitle,
+            content: editedContent,
+            objectives: editedObjectives,
+          }
+        : lesson
+    )
+
+    const updatedCourse = {
+      ...courseData,
+      lessons: updatedLessons,
+    }
+
+    setCourseData(updatedCourse)
+    localStorage.setItem("publishedCourse", JSON.stringify(updatedCourse))
+    setIsEditing(false)
+  }
+
+  const handleAddObjective = () => {
+    setEditedObjectives([...editedObjectives, "Новая цель"])
+  }
+
+  const handleRemoveObjective = (index: number) => {
+    setEditedObjectives(editedObjectives.filter((_, i) => i !== index))
+  }
+
+  const handleObjectiveChange = (index: number, value: string) => {
+    const updated = [...editedObjectives]
+    updated[index] = value
+    setEditedObjectives(updated)
   }
 
   if (!courseData) {
@@ -127,9 +190,20 @@ export default function CoursePage() {
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-3xl font-bold text-balance">{currentLessonData?.title}</h2>
-                  <span className="text-sm text-muted-foreground">
-                    Урок {currentLesson + 1} из {courseData.lessons.length}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openEditModal}
+                      className="rounded-[30px]"
+                    >
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Редактировать
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Урок {currentLesson + 1} из {courseData.lessons.length}
+                    </span>
+                  </div>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
@@ -194,6 +268,155 @@ export default function CoursePage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Lesson Dialog */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              {isEditing ? (
+                <span className="text-xl">Редактирование урока</span>
+              ) : (
+                <span className="text-xl">Содержание урока</span>
+              )}
+              <div className="flex gap-2">
+                {!isEditing ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      className="rounded-[30px]"
+                    >
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Редактировать
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditModalOpen(false)}
+                      className="rounded-[30px]"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        handleSave()
+                        setIsEditModalOpen(false)
+                      }}
+                      className="rounded-[30px]"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Сохранить
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsEditing(false)
+                        const lesson = courseData?.lessons[currentLesson]
+                        if (lesson) {
+                          setEditedTitle(lesson.title)
+                          setEditedContent(lesson.content)
+                          setEditedObjectives([...lesson.objectives])
+                        }
+                      }}
+                      className="rounded-[30px]"
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Отмена
+                    </Button>
+                  </>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Title */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Название урока</h3>
+              {isEditing ? (
+                <Input
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  className="text-xl font-bold"
+                  placeholder="Название урока"
+                />
+              ) : (
+                <h2 className="text-2xl font-bold">{editedTitle}</h2>
+              )}
+            </div>
+
+            {/* Learning Objectives */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Цели обучения</h3>
+              {isEditing ? (
+                <div className="space-y-2">
+                  {editedObjectives.map((objective, index) => (
+                    <div key={index} className="flex gap-2">
+                      <Input
+                        value={objective}
+                        onChange={(e) => handleObjectiveChange(index, e.target.value)}
+                        className="flex-1"
+                        placeholder="Цель обучения"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveObjective(index)}
+                        className="text-destructive"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddObjective}
+                    className="rounded-[30px]"
+                  >
+                    Добавить цель
+                  </Button>
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {editedObjectives.map((objective, index) => (
+                    <li key={index} className="flex items-start">
+                      <span className="mr-2 text-muted-foreground">•</span>
+                      <span>{objective}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Content */}
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Содержание урока</h3>
+              {isEditing ? (
+                <Textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="min-h-[400px] font-mono text-sm"
+                  placeholder="Содержание урока..."
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed">
+                    {editedContent}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
