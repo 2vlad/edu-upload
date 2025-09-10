@@ -120,7 +120,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6 relative">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
       {/* Loading Overlay */}
       {isProcessing && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
@@ -160,7 +160,7 @@ export default function HomePage() {
         </div>
       )}
       
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">Создайте курс из PDF-файлов</h1>
           <p className="text-lg text-muted-foreground text-pretty">
