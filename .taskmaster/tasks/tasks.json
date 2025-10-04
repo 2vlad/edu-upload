@@ -76,7 +76,7 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -84,7 +84,7 @@
             "description": "Install mammoth for DOCX parsing, striprtf for RTF parsing, jsdom for HTML processing, and any additional dependencies needed for MD and TXT parsing",
             "dependencies": [],
             "details": "Run npm install commands for mammoth, striprtf, jsdom packages. Update package.json with new dependencies. Verify installations work correctly with basic import tests. These libraries will provide the core parsing functionality for different document formats.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify each package can be imported successfully and basic functionality works with simple test documents"
           },
           {
@@ -93,7 +93,7 @@
             "description": "Set up the parser directory structure and define the common interface that all parsers will return",
             "dependencies": [],
             "details": "Create lib/parsers/ directory structure. Define ExtractedFile interface with id, filename, mime, text, and imagePath fields in a types.ts file. This interface will standardize the output from all different parsers and ensure consistency across the application.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify directory structure is created correctly and interface can be imported in other files"
           },
           {
@@ -105,7 +105,7 @@
               "2.2"
             ],
             "details": "Create pdf.ts (refactor existing logic), docx.ts (using mammoth), rtf.ts (using striprtf), md.ts (plain text parsing), txt.ts (direct reading), and html.ts (using jsdom) in lib/parsers/. Each parser should handle file validation, text extraction, and return standardized ExtractedFile format. Include proper error handling for corrupted or invalid files.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test each parser with sample files of respective formats, verify text extraction quality and error handling for corrupted files"
           },
           {
@@ -116,7 +116,7 @@
               "2.2"
             ],
             "details": "Create image parser module that handles PNG/JPG/WebP formats. Implement Supabase Storage client for uploading images with proper bucket configuration and path generation. Add image metadata extraction and ensure imagePath field is populated in ExtractedFile interface. Handle image compression and optimization if needed.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test image upload to Supabase Storage, verify proper paths are generated, test with different image formats and sizes"
           },
           {
@@ -128,7 +128,7 @@
               "2.4"
             ],
             "details": "Create validation utility functions for MIME type detection, file size checking (20-30MB limit), and format-specific validation. Implement comprehensive error handling with user-friendly error messages for unsupported formats, oversized files, and corrupted documents. Add logging for debugging parsing issues. Ensure all parsers use consistent validation and error handling patterns.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test file size limits with large files, verify MIME type detection works correctly, test error handling with corrupted and unsupported files"
           }
         ]
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-04T18:09:51.432Z",
+      "updated": "2025-10-04T18:18:43.748Z",
       "description": "Tasks for master context"
     }
   }
