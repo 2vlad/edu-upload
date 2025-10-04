@@ -15,7 +15,8 @@ async function extractTextFromPDF(file: File): Promise<string> {
     const buffer = Buffer.from(arrayBuffer)
     
     // Dynamic import to avoid issues with server-side modules
-    const pdfParse = (await import('pdf-parse')).default
+    // Import the implementation file directly to skip the package's debug entry point that reads test assets
+    const pdfParse = (await import("pdf-parse/lib/pdf-parse.js")).default
     
     // Parse the PDF
     const data = await pdfParse(buffer)

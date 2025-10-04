@@ -186,82 +186,86 @@ export default function CoursePage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <Card className="p-8">
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-3xl font-bold text-balance">{currentLessonData?.title}</h2>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={openEditModal}
-                      className="rounded-[30px]"
-                    >
-                      <Edit2 className="w-4 h-4 mr-2" />
-                      Редактировать
-                    </Button>
-                    <span className="text-sm text-muted-foreground">
-                      Урок {currentLesson + 1} из {courseData.lessons.length}
-                    </span>
+            <Card className="p-8 md:p-10 lg:p-12">
+              <div className="flex flex-col gap-10">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-6">
+                    <h2 className="text-3xl font-bold text-balance">{currentLessonData?.title}</h2>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={openEditModal}
+                        className="rounded-[30px]"
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Редактировать
+                      </Button>
+                      <span className="whitespace-nowrap">
+                        Урок {currentLesson + 1} из {courseData.lessons.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div
+                      className="bg-primary h-2 rounded-full transition-all"
+                      style={{ width: `${((currentLesson + 1) / courseData.lessons.length) * 100}%` }}
+                    />
                   </div>
                 </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all"
-                    style={{ width: `${((currentLesson + 1) / courseData.lessons.length) * 100}%` }}
-                  />
+
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 tracking-tight">Цели обучения</h3>
+                    <ul className="space-y-3 text-base leading-relaxed text-muted-foreground">
+                      {currentLessonData?.objectives.map((objective, idx) => (
+                        <li key={idx} className="flex items-start gap-3">
+                          <span className="mt-1 text-primary">•</span>
+                          <span className="text-pretty">{objective}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="prose prose-lg max-w-none">
+                    <div className="text-lg leading-8 text-foreground text-pretty whitespace-pre-wrap">
+                      {currentLessonData?.content}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-3">Цели обучения</h3>
-                <ul className="space-y-2 text-muted-foreground">
-                  {currentLessonData?.objectives.map((objective, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
-                      <span className="text-pretty">{objective}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                <div className="flex flex-wrap items-center justify-between gap-4 pt-8 border-t border-border/70">
+                  <Button
+                    variant="outline"
+                    onClick={prevLesson}
+                    disabled={currentLesson === 0}
+                    className="rounded-[30px] bg-transparent"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Назад
+                  </Button>
 
-              <div className="prose prose-lg max-w-none mb-8">
-                <div className="text-foreground leading-relaxed text-pretty whitespace-pre-wrap">
-                  {currentLessonData?.content}
-                </div>
-              </div>
+                  <div className="flex flex-wrap gap-3">
+                    {!completedLessons.has(currentLessonData?.id) && (
+                      <Button
+                        variant="outline"
+                        onClick={() => markComplete(currentLessonData?.id)}
+                        className="rounded-[30px]"
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Отметить выполненным
+                      </Button>
+                    )}
 
-              <div className="flex items-center justify-between pt-6 border-t">
-                <Button
-                  variant="outline"
-                  onClick={prevLesson}
-                  disabled={currentLesson === 0}
-                  className="rounded-[30px] bg-transparent"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Назад
-                </Button>
-
-                <div className="flex gap-3">
-                  {!completedLessons.has(currentLessonData?.id) && (
                     <Button
-                      variant="outline"
-                      onClick={() => markComplete(currentLessonData?.id)}
+                      onClick={nextLesson}
+                      disabled={currentLesson === courseData.lessons.length - 1}
                       className="rounded-[30px]"
                     >
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Отметить выполненным
+                      Далее
+                      <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
-                  )}
-
-                  <Button
-                    onClick={nextLesson}
-                    disabled={currentLesson === courseData.lessons.length - 1}
-                    className="rounded-[30px]"
-                  >
-                    Далее
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
+                  </div>
                 </div>
               </div>
             </Card>

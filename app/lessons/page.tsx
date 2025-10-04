@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -39,6 +39,7 @@ export default function LessonsPage() {
   const [editedContent, setEditedContent] = useState("")
   const [editedObjectives, setEditedObjectives] = useState<string[]>([])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const dragLessonIdRef = useRef<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -141,6 +142,67 @@ export default function LessonsPage() {
     setEditedObjectives(updated)
   }
 
+  const reorderLessons = useCallback((lessons: Lesson[], sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return lessons
+
+    const sourceIndex = lessons.findIndex((lesson) => lesson.id === sourceId)
+    const targetIndex = lessons.findIndex((lesson) => lesson.id === targetId)
+
+    if (sourceIndex === -1 || targetIndex === -1) return lessons
+
+    const updated = [...lessons]
+    const [movedLesson] = updated.splice(sourceIndex, 1)
+    updated.splice(targetIndex, 0, movedLesson)
+
+    return updated
+  }, [])
+
+  const persistLessons = useCallback((lessons: Lesson[]) => {
+    setCourseData((prev) => {
+      if (!prev) return prev
+      const updatedCourse = { ...prev, lessons }
+      localStorage.setItem("courseData", JSON.stringify(updatedCourse))
+
+      if (selectedLesson) {
+        const latestSelection = lessons.find((lesson) => lesson.id === selectedLesson.id)
+        if (latestSelection) {
+          setSelectedLesson(latestSelection)
+        }
+      }
+
+      return updatedCourse
+    })
+  }, [selectedLesson])
+
+  const handleDragStart = (event: React.DragEvent<HTMLDivElement>, lessonId: string) => {
+    dragLessonIdRef.current = lessonId
+    event.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, lessonId: string) => {
+    if (!dragLessonIdRef.current || dragLessonIdRef.current === lessonId) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+  }
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>, targetId: string) => {
+    event.preventDefault()
+
+    const sourceId = dragLessonIdRef.current
+    if (!sourceId || !courseData) return
+
+    const updatedLessons = reorderLessons(courseData.lessons, sourceId, targetId)
+
+    if (updatedLessons === courseData.lessons) return
+
+    persistLessons(updatedLessons)
+    dragLessonIdRef.current = null
+  }
+
+  const handleDragEnd = () => {
+    dragLessonIdRef.current = null
+  }
+
   if (!courseData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -224,6 +286,11 @@ export default function LessonsPage() {
               {courseData.lessons.map((lesson, index) => (
                 <Card 
                   key={lesson.id} 
+                  draggable
+                  onDragStart={(event) => handleDragStart(event, lesson.id)}
+                  onDragOver={(event) => handleDragOver(event, lesson.id)}
+                  onDrop={(event) => handleDrop(event, lesson.id)}
+                  onDragEnd={handleDragEnd}
                   className="w-[320px] h-[420px] p-6 flex flex-col hover:shadow-lg transition-shadow cursor-pointer"
                   style={{
                     backgroundColor: index === 0 ? "oklch(0.94 0 0)" : "oklch(1 0 0)",
