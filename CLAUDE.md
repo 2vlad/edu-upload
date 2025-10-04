@@ -61,3 +61,7 @@ The project has TypeScript and ESLint errors intentionally ignored during builds
 - PDF text extraction is currently simulated in the MVP (`extractTextFromPDF` function). Production implementation would require proper PDF parsing libraries
 - Course data is stored in localStorage - no backend database integration yet
 - OpenAI API key must be configured in environment variables for the app to function
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md

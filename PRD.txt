@@ -1,0 +1,542 @@
+Ниже — детальный PRD для расширения проекта **edu-upload** под ваши цели. Я опирался на текущую архитектуру и историю коммитов репозитория, чтобы не «выдумывать» и точно попасть в контекст кода.
+
+> **Что есть сейчас (по коду репо)**
+>
+> * Next.js (app router), UI на Tailwind + shadcn/radix, состояние курса хранится в `localStorage`, бэкенд‑БД нет. Подтверждается в `CLAUDE.md` («Course data is stored in localStorage – no backend database integration yet») и структуре страниц (`app/page.tsx` — загрузка, `app/api/process-pdfs/route.ts` — обработка, `app/lessons/page.tsx` — правка, `app/course/page.tsx` — просмотр) после перехода с Groq на OpenAI GPT‑4o и `generateObject` + Zod-схему. ([GitHub][1])
+> * Обработка PDF через `pdf-parse` (реальная, не мок), см. апдейт в `app/api/process-pdfs/route.ts`. ([GitHub][2])
+> * Страница «Уроки» сейчас — горизонтальный карусель‑листинг карточек (commit «Redesign lessons page with horizontal carousel layout»), именно это и делает «прокрутку вправо». ([GitHub][3])
+> * Редактирование уроков через модалку c markdown/textarea; правки кладутся обратно в `localStorage`. ([GitHub][4])
+
+---
+
+## 1) Цели релиза
+
+**Сформировать полноценный конвейер создания курса**, который:
+
+1. принимает **любой набор текстовых файлов** (+ изображения);
+2. разрешает **добавлять новые файлы уже на этапе редактирования**;
+3. после обработки **сначала показывает тезисный «План курса» цельным вертикальным списком** (без горизонтального скролла);
+4. в каждой лекции даёт **наводящие вопросы/подсказки** («как нарастить мясо на скелет»);
+5. добавляет **Supabase** с максимально простым сетапом: кнопка «Опубликовать курс» реально публикует, появляется **/courses** со списком ранее сгенерированных/опубликованных курсов пользователя.
+
+---
+
+## 2) In scope / Out of scope
+
+**In scope**
+
+* Поддержка форматов: PDF, DOCX, MD/Markdown, TXT, RTF, HTML.
+* Загрузка изображений (PNG/JPG/WebP).
+* Переосмысление «/lessons» в **Outline‑режим по умолчанию**.
+* Генерация «guidance» (вопросы/подсказки) **в составе первой AI‑генерации**.
+* Интеграция Supabase: Auth (аноним), таблицы, RLS, Storage, «Опубликовать», страница «Мои курсы».
+
+**Out of scope (MVP)**
+
+* Коллаборативный real‑time редактор.
+* Сложные цитаты‑ссылки на страницы PDF / распознавание источников.
+* Продвинутый OCR для изображений (в MVP — только хранение, опционально: позже добавить Tesseract).
+
+---
+
+## 3) Пользовательские истории
+
+1. **Автор загружает** пакет PDF/DOCX/MD/TXT/RTF/HTML и **изображения**. Получает **тезисный план** (вертикальный список лекций) + краткие буллеты по каждой лекции.
+2. **Автор открывает лекцию** и видит: «Цель/логлайн», **наводящие вопросы**, подсказки по структуре («что раскрыть», «какие примеры привести», «типичные ошибки»).
+3. **Автор вносит правки** и **добавляет новые документы** (дотягивает материал из доп. файлов), после чего «Уточнить план» не разрушает уже отредактированный контент.
+4. **Автор публикует курс** → курс сохраняется в БД, записи и ассеты — в Supabase (Storage) → в разделе **/courses** видит все свои курсы (Drafts/Published).
+5. **Гость или автор** открывает **/courses/[slug]** и читает опубликованный курс (read‑only).
+
+---
+
+## 4) UX & ключевые экраны (ASCII‑вайрфреймы)
+
+### 4.1 `/` (Upload)
+
+```
++--------------------------------------+
+|  Drag & Drop files or Browse         |
+|  [PDF, DOCX, MD, TXT, RTF, HTML]     |
+|  + Images (PNG/JPG/WebP)             |
+|  ----------------------------------  |
+|  Files queue (name, type, size, X)   |
+|  [Process documents]                 |
++--------------------------------------+
+```
+
+### 4.2 `/outline` (новый шаг после обработки) — **вид по умолчанию**
+
+```
+Course Title (editable)
+Short description (editable)
+[Edit sources] [Add files] [Re-run guidance/non-destructive]
+
+Outline (vertical list):
+1. Лекция 1 — логлайн
+   • 3–5 тезисов/буллетов
+   [Open in editor]
+2. Лекция 2 — логлайн
+   • ...
+...
+[Proceed to edit lessons]
+```
+
+### 4.3 `/lessons` (Editor)
+
+Слева — **TOC** (вертикальный список лекций), справа — редактор:
+
+```
+[TOC: 1..N]        [Lesson Editor]
+                   Title
+                   Objectives [ + Add objective ]
+                   Guidance (наводящие вопросы)
+                   Content (Markdown)
+                   [Attach images] [Insert from library]
+                   [Save draft]
+```
+
+**Toggle View:** `Outline | Cards` — для желающих вернуться к карточкам (текущий карусель‑вид останется опциональным).
+
+### 4.4 `/courses` (My Courses)
+
+```
+Tabs: [Drafts] [Published]
+Grid/List of courses: title, updatedAt, [Open] [Publish/Unpublish] [Delete]
+```
+
+### 4.5 `/courses/[slug]` (Public View)
+
+Reader‑страница курса + список уроков, без возможности редактирования.
+
+---
+
+## 5) Функциональные требования
+
+### FR‑1. Загрузка и парсинг документов
+
+* Поддерживаемые типы:
+
+  * **Текстовые:** PDF, DOCX, MD/Markdown, TXT, RTF, HTML.
+  * **Изображения:** PNG, JPG, WebP (хранение в Storage; в MVP без OCR).
+* Серверный роут: **`app/api/process-files/route.ts`** (заменяет/дополняет `process-pdfs`).
+* Для DOCX — `mammoth` (docx→HTML→plain text), для RTF — `striprtf`/`node-unrtf` или аналоги; для PDF — текущий `pdf-parse` (уже используется). Релевантные источники: mammoth.js (docx→HTML), pdf‑parse, RTF→text библиотеки. ([GitHub][5])
+* Нормализация текста: HTML→plain (удаление мусора, слияние, ограничение длины сегментов), split на «логические куски» 2–5k токенов.
+* **Выход обработки:**
+
+  ```ts
+  type ExtractedFile = {
+    id: string; filename: string; mime: string;
+    text?: string; // для текстовых
+    imagePath?: string; // для изображений
+  }
+  ```
+* Список источников хранить в состоянии курса; отображать на `/outline` с возможностью удалить/добавить.
+
+### FR‑2. Добавление документов на этапе редактирования
+
+* На `/outline` и `/lessons`: кнопка **[Add files]** → повторный вызов `process-files`.
+* Кнопка **[Update outline]**:
+
+  * режим *non‑destructive*: сохраняем существующие `lesson.id` и уже отредактированный `content`, но:
+
+    * добавляем новые уроки, если AI посчитал нужным;
+    * дополняем «objectives», «guidance»;
+  * предлагаем дифф‑просмотр: «что добавилось/что изменится» с возможностью «Apply changes».
+* Источники (files) ведём как отдельную сущность `source_files` (см. Data Model).
+
+### FR‑3. План курса (Outline‑режим)
+
+* После первой генерации показываем **вертикальный список** уроков с логлайном и 3–5 буллетов (тезисы).
+* Управление:
+
+  * Drag&drop для перестановки лекций;
+  * инлайн‑редактирование заголовка/логлайна;
+  * переход в редактор конкретной лекции.
+
+### FR‑4. Наводящие вопросы/подсказки («guidance»)
+
+* Для **каждой лекции** генерируем поля:
+
+  * `guiding_questions: string[]` — 5–8 наводящих вопросов;
+  * `expansion_tips: string[]` — практические подсказки/нюансы/ошибки;
+  * `examples_to_add: string[]` — идеи примеров/кейсов.
+* Это **часть первой генерации** (вместе с `objectives` и `content`) — одной моделью (`generateObject` уже используется: OpenAI GPT‑4o + Zod‑схема). ([GitHub][1])
+* В редакторе: отдельный блок «Наводящие вопросы» с кнопками `[Insert as outline]`, `[Regenerate]`, `[Refine with…]`.
+
+### FR‑5. Публикация курса (Supabase)
+
+* Кнопка **[Опубликовать курс]**:
+
+  * если пользователь не авторизован — **анонимная авторизация** (`auth.signInAnonymously()`); официальный JS‑метод доступен и прокидывает признак `is_anonymous` в JWT для RLS. ([Supabase][6])
+  * апсерты в таблицы `courses`, `lessons`, `course_assets`, `source_files` (см. Data Model).
+  * изображения — в Storage (bucket `course-assets`), doc‑файлы — в `course-uploads`.
+  * статус курса `published = true`, генерируем `slug`.
+* **/courses**: список Drafts/Published **только текущего пользователя** (по `auth.uid()` в RLS). Базовые RLS‑примеры и best practices — в оф. доках Supabase. ([Supabase][7])
+
+---
+
+## 6) Data Model (Supabase)
+
+> Минимум сущностей для MVP; RLS — только автор видит свои записи (включая анонимного). Для анонимных важно **не разлогинивать** пользователя; повторный `signInAnonymously` создаёт **нового** юзера (см. обсуждение от мейнтейнера Supabase), поэтому проверяем текущую сессию перед вызовом. ([GitHub][8])
+
+**Таблицы**
+
+**`profiles`** (опционально, но полезно для неанон‑входа в будущем)
+
+* `id uuid primary key default auth.uid()`
+* `created_at timestamptz default now()`
+* `is_anonymous boolean generated from jwt claim` (или вычислять в приложении)
+
+**`courses`**
+
+* `id uuid pk default gen_random_uuid()`
+* `user_id uuid not null` (FK → auth.users)
+* `title text not null`
+* `description text`
+* `slug text unique not null`
+* `published boolean default false`
+* `created_at timestamptz default now()`
+* `updated_at timestamptz default now()`
+
+**`lessons`**
+
+* `id uuid pk default gen_random_uuid()`
+* `course_id uuid not null` (FK → courses)
+* `order_index int not null`
+* `title text not null`
+* `logline text`
+* `objectives jsonb not null default '[]'`
+* `guiding_questions jsonb not null default '[]'`
+* `expansion_tips jsonb not null default '[]'`
+* `examples_to_add jsonb not null default '[]'`
+* `content text`  // markdown
+* `created_at`, `updated_at`
+
+**`source_files`** (исходные файлы, из которых строили курс)
+
+* `id uuid pk`
+* `course_id uuid fk`
+* `filename text`, `mime text`
+* `text_content text`  // для текстовых
+* `storage_path text`   // для исходников и изображений
+* `created_at`
+
+**`course_assets`** (изображения/рисунки, прикрепленные в уроки)
+
+* `id uuid pk`
+* `course_id uuid fk`
+* `lesson_id uuid fk`
+* `storage_path text`
+* `caption text`
+* `created_at`
+
+**RLS (ядро)**
+
+* Enable RLS on all tables.
+* Политики вида:
+
+  * `SELECT/INSERT/UPDATE/DELETE WHERE user_id = auth.uid()` для `courses`, `lessons`, `source_files`, `course_assets`.
+  * Для анонимов всё так же работает — у JWT есть `sub` (`auth.uid()`), плюс можно проверять `is_anonymous` claim при желании. Основание: оф. документация про anonymous sign‑ins и RLS. ([Supabase][9])
+
+**Storage (Supabase)**
+
+* Buckets: `course-uploads` (docs), `course-assets` (images).
+* Политика: чтение публичное только для `course-assets` опубликованных курсов, иначе — signed URLs (MVP можно сделать простую публичность и не палить приватные черновики: держать ассеты приватными и давать signedURL в редакторе).
+
+---
+
+## 7) Изменения в API и серверной логике
+
+### 7.1 Новый эндпоинт `POST /api/process-files`
+
+**Вход:** `FormData` с файлами.
+**Шаги:**
+
+1. Определить MIME → рутинизировать парсинг:
+
+   * PDF → `pdf-parse` (как сейчас). ([GitHub][2])
+   * DOCX → `mammoth` (docx→HTML→plain). ([GitHub][5])
+   * MD/TXT → прочитать как текст.
+   * RTF → `striprtf` (или `node-unrtf`) для извлечения plain‑текста. ([JSR][10])
+   * HTML → `jsdom`→plain‑text (удалить скрипты/стили/навигацию).
+   * Изображения → загрузить в Storage, вернуть `imagePath` (для вставки).
+2. Сформировать `combinedText` (агрегация, нормализация, лимиты).
+3. Вызвать **OpenAI `generateObject`** c **расширенной Zod‑схемой** (см. 7.2). В репо уже используется `@ai-sdk/openai` + `generateObject` + `zod`. ([GitHub][1])
+4. Вернуть: `{ courseStructure, extractedFiles[] }`.
+
+### 7.2 Обновлённая Zod‑схема (пример)
+
+Добавляем тезисы плана и guidance:
+
+```ts
+z.object({
+  title: z.string(),
+  description: z.string(),
+  outline: z.array(z.object({
+    lesson_id: z.string(), // для стабильности id
+    title: z.string(),
+    logline: z.string().optional(),
+    bullets: z.array(z.string()).min(3).max(7) // тезисы
+  })),
+  lessons: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    content: z.string(), // 300–400 слов
+    objectives: z.array(z.string()),
+    guiding_questions: z.array(z.string()).min(5).max(8),
+    expansion_tips: z.array(z.string()).min(3).max(6),
+    examples_to_add: z.array(z.string()).min(2).max(5)
+  }))
+})
+```
+
+> В репозитории уже есть миграция на Zod‑схему для `generateObject` на стороне OpenAI. Мы сюда лишь расширяем поля. ([GitHub][11])
+
+### 7.3 Нерушимая регенерация (при добавлении источников)
+
+* В подсказку модели передаём **текущие** `lessons` с их `id` и пометкой: «сохраняй существующие `id`, изменяй только `objectives/guidance/bullets`, **не затирай вручную отредактированный `content`**. Новые темы — создавай новые уроки с новыми id».
+* На сервере сравниваем результат с текущими данными и делаем non‑destructive merge.
+
+---
+
+## 8) Изменения на фронте
+
+* **`/page.tsx` (upload)**:
+
+  * расширить `accept` на DOCX/MD/TXT/RTF/HTML/PNG/JPG/WebP;
+  * отображение очереди;
+  * отправка в `/api/process-files`;
+  * редирект на `/outline`.
+* **`/outline/page.tsx` (новая страница)**:
+
+  * вертикальный список лекций с буллетами;
+  * «Edit sources» (список файлов + удаления), «Add files», «Update outline (non‑destructive)».
+* **`/lessons/page.tsx`**:
+
+  * слева — вертикальный TOC (вместо «горизонтального каруселя по умолчанию», который фиксировали отдельным коммитом — оставляем как альтернативный вид). ([GitHub][3])
+  * справа — редактор: `Objectives`, **`Guidance`**, `Content` (markdown), `Attach images` (выбор из Storage + вставка Markdown `![](url)`), drag‑n‑drop reorder.
+  * хранить черновики локально и/или сразу в Supabase (черновики — в таблицах с `published=false`).
+* **`/courses`**:
+
+  * табы Drafts/Published;
+  * карточки/таблица; действия: `Open`, `Publish/Unpublish`, `Delete`.
+* **`/courses/[slug]`**: read‑only просмотр.
+
+---
+
+## 9) Supabase интеграция (минимальный сетап)
+
+1. **Создать проект**; получить `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. `npm i @supabase/supabase-js` и `lib/supabaseClient.ts` (singleton).
+3. **Auth**: при первом визите — `supabase.auth.getSession()`, если нет — `signInAnonymously()` (проверять, чтобы не создавать нового юзера каждый раз). Официальные доки: anonymous sign‑in, JS‑пример. ([Supabase][6])
+
+   * Примечание: JWT анонимного юзера содержит claim `is_anonymous` — можно использовать в RLS. ([Supabase][9])
+4. **БД‑схема и RLS**: создать таблицы, включить RLS, добавить политики на `auth.uid()` (примерные политики и техника — в оф. документации и best practices). ([Supabase][7])
+5. **Storage**: buckets `course-uploads`, `course-assets`; загрузка через `supabase.storage.from(bucket).upload(...)` (официальный пример). ([Supabase][12])
+6. **Публикация**: кнопка «Опубликовать» делает upsert в `courses` (`published=true`) и связанные записи; для ассетов публичный доступ либо генерация signed URL (MVP: public for published).
+
+---
+
+## 10) Нефункциональные требования
+
+* **Производительность**: ограничить размер файла (например, до 20–30MB для PDF/DOCX; большие → сообщать/резать по страницам).
+* **Стабильность генерации**: токен‑лимиты, чанкинг источников, ретраи при 429/5xx.
+* **Безопасность**: валидация MIME, sanitization HTML→text, приватность черновиков (RLS).
+* **Локализация**: RU интерфейс уже добавлялся; сохраняем RU‑подсказки модели (см. коммит про русские инструкции генерации). ([GitHub][2])
+* **Телеметрия**: логировать события «upload_started/finished», «ai_generate_outline», «ai_regenerate_guidance», «publish_course».
+
+---
+
+## 11) Критерии приёмки (Acceptance)
+
+**Загрузка и парсинг**
+
+* Я могу загрузить любые сочетания: PDF/DOCX/MD/TXT/RTF/HTML/PNG/JPG/WebP.
+* После «Process documents» — попадаю на `/outline` с корректным **вертикальным** планом.
+* В `/outline` вижу список источников, могу удалить/добавить файлы, не теряя прогресс.
+
+**Outline & Guidance**
+
+* У каждой лекции есть: `logline`, **3–5 буллетов‑тезисов**, `objectives`, **`guiding_questions`**, `expansion_tips`, `examples_to_add`.
+* В `/lessons` вижу Guidance‑блок; по кнопке «Insert as outline» подсказки превращаются в маркированный план внутри контента.
+
+**Добавление файлов в процессе**
+
+* «Add files» на `/outline` или `/lessons` приводит к **non‑destructive** обновлению (мои правки `content` не стираются, порядок и `id` существующих — сохраняется; новые уроки появляются отдельно).
+
+**Публикация**
+
+* При клике «Опубликовать»:
+
+  * создаётся/проверяется **анонимная сессия**, курс и уроки пишутся в БД под моим `user_id`; ассеты — в Storage;
+  * курс появляется в `/courses` → `Published`;
+  * URL `/courses/[slug]` открывает read‑only курс (без логина).
+
+---
+
+## 12) План внедрения (итерации)
+
+**Ит.1 — Многоформатный парсинг + Outline‑страница**
+
+* Новый эндпоинт `/api/process-files` (поддержка всех текстовых форматов).
+* `/outline` как дефолтный следующий шаг.
+* Вертикальный список лекций с буллетами.
+
+**Ит.2 — Guidance и редактор**
+
+* Расширить Zod‑схему и промпт для `generateObject`.
+* Блок «Наводящие вопросы/подсказки» в `/lessons`.
+* Non‑destructive merge при добавлении источников.
+
+**Ит.3 — Supabase (Auth, DB, Storage) + Публикация**
+
+* Анонимная авторизация, таблицы, RLS, Storage.
+* Кнопка «Опубликовать», страница `/courses`, `/[slug]`.
+
+---
+
+## 13) Технические заметки и риски
+
+* **DOCX → текст**: `mammoth` стабилен, но всё равно советую прогонять через HTML→plain фильтр (удалять header/footer/TOC). ([GitHub][5])
+* **RTF**: вариантов несколько; для edge‑файлов лучше `node-unrtf` (но это shell‑обёртка), либо `striprtf` (JS‑модуль). ([GitHub][13])
+* **PDF**: вы уже используете `pdf-parse` и даже фиксы импорта для Next.js SSR; оставляем. ([GitHub][14])
+* **Анонимная авторизация**: не вызывать `signInAnonymously()` повторно, если сессия существует (иначе новый user). ([GitHub][8])
+* **UI «карусель vs список»**: карточная карусель (как в текущем коммите) остаётся опцией, но Default = Outline‑список. ([GitHub][3])
+
+---
+
+## 14) Пример миграции (SQL, Supabase)
+
+```sql
+-- enable pgcrypto for gen_random_uuid if needed
+create extension if not exists pgcrypto;
+
+create table public.courses (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  title text not null,
+  description text,
+  slug text unique not null,
+  published boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table public.lessons (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  order_index int not null,
+  title text not null,
+  logline text,
+  objectives jsonb not null default '[]',
+  guiding_questions jsonb not null default '[]',
+  expansion_tips jsonb not null default '[]',
+  examples_to_add jsonb not null default '[]',
+  content text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table public.source_files (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  filename text not null,
+  mime text not null,
+  text_content text,
+  storage_path text,
+  created_at timestamptz default now()
+);
+
+create table public.course_assets (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references public.courses(id) on delete cascade,
+  lesson_id uuid references public.lessons(id) on delete set null,
+  storage_path text not null,
+  caption text,
+  created_at timestamptz default now()
+);
+
+-- RLS
+alter table public.courses enable row level security;
+alter table public.lessons enable row level security;
+alter table public.source_files enable row level security;
+alter table public.course_assets enable row level security;
+
+-- policies (basic: only owner)
+create policy "owner_select_courses" on public.courses
+for select using (auth.uid() = user_id);
+create policy "owner_mod_courses" on public.courses
+for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "owner_select_lessons" on public.lessons
+for select using (auth.uid() = (select user_id from public.courses c where c.id = course_id));
+create policy "owner_mod_lessons" on public.lessons
+for all using (auth.uid() = (select user_id from public.courses c where c.id = course_id))
+with check (auth.uid() = (select user_id from public.courses c where c.id = course_id));
+
+-- аналогично для source_files, course_assets
+```
+
+---
+
+## 15) Изменения в кодовой базе (скелет задач)
+
+* [ ] `lib/supabaseClient.ts` (+ env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+* [ ] Рефактор `app/api/process-pdfs/route.ts` → `app/api/process-files/route.ts` (оставить alias/redirect)
+* [ ] Парсеры: `lib/parsers/{pdf.ts, docx.ts, rtf.ts, md.ts, html.ts}`
+* [ ] Расширение промпта + Zod‑схемы (см. §7.2) для `generateObject` (OpenAI GPT‑4o уже подключён). ([GitHub][1])
+* [ ] Новая страница `app/outline/page.tsx`
+* [ ] Обновить `/lessons/page.tsx`: TOC‑лист, Guidance‑блок, Attach images
+* [ ] Storage‑адаптер: загрузка изображений из редактора
+* [ ] Публикация: `actions/publishCourse.ts` (server action) → upsert в Supabase
+* [ ] `/courses/page.tsx` (лист), `/courses/[slug]/page.tsx` (reader)
+* [ ] RLS‑политики в Supabase; buckets + правила доступа
+* [ ] Тесты: unit (парсеры), e2e happy‑flow (upload → outline → lessons → publish)
+
+---
+
+## 16) Метрики успеха
+
+* Время от загрузки до первого **Outline** < 20 с для 10–20MB суммарных файлов.
+* > 70% сессий проходят через **Outline** → **Edit** → **Publish** без ошибок.
+* Средняя длина `guiding_questions` 5–8, `bullets` 3–5, отклонения <±1 в 90% кейсов.
+* 0 случаев потери ручных правок при «Update outline» (non‑destructive merge).
+
+---
+
+## 17) Открытые вопросы (можно решить по ходу)
+
+* Нужен ли OCR уже в MVP? (предлагаю v2)
+* Публичность ассетов у опубликованных курсов: public vs signedURL? (MVP — public, v2 — приват + подписанные ссылки)
+* Нужно ли версионирование курсов? (v2: `course_versions`)
+
+---
+
+### Ссылки на конкретные места репозитория/документации
+
+* Переход на OpenAI + арх. описание (Next.js 14, localStorage, generateObject + Zod). ([GitHub][1])
+* Реальный парсинг PDF (`pdf-parse`). ([GitHub][2])
+* Горизонтальная карусель уроков (источник UX‑проблемы). ([GitHub][3])
+* Модалка редактирования уроков в `/lessons` и `/course`. ([GitHub][4])
+* Supabase anonymous auth + RLS практика. ([Supabase][6])
+* Загрузка файлов в Supabase Storage (JS). ([Supabase][12])
+* Дополнительно по парсерам: mammoth (DOCX), RTF→text. ([GitHub][5])
+
+---
+
+Если хотите, могу сразу расписать конкретные промпты (RU) для `generateObject` под вашу тональность («скелет → мясо», стиль вопросов, анти‑шаблон «корпоративщины») и склеить пошаговую SQL‑миграцию для Supabase в один файл.
+
+[1]: https://github.com/2vlad/edu-upload/commit/22e54577556cba8055f88bb6eb41200d17e0c4b5 "Switch from Groq to OpenAI GPT-4o model · 2vlad/edu-upload@22e5457 · GitHub"
+[2]: https://github.com/2vlad/edu-upload/commit/8295e9668660a6fb58ffd8ce3cb1be623304e6ce "Fix PDF processing to use actual PDF content extraction · 2vlad/edu-upload@8295e96 · GitHub"
+[3]: https://github.com/2vlad/edu-upload/commit/7e7144bbdeeb4b176be198971418b84f660a164e "Redesign lessons page with horizontal carousel layout · 2vlad/edu-upload@7e7144b · GitHub"
+[4]: https://github.com/2vlad/edu-upload/commit/d8ea369433e41666a2dc6580dd86bf12fd6946c5 "Add lesson editing modal with markdown support · 2vlad/edu-upload@d8ea369 · GitHub"
+[5]: https://github.com/mwilliamson/mammoth.js?utm_source=chatgpt.com "mwilliamson/mammoth.js: Convert Word documents (.docx files) to ..."
+[6]: https://supabase.com/docs/reference/javascript/auth-signinanonymously?utm_source=chatgpt.com "JavaScript: Create an anonymous user"
+[7]: https://supabase.com/docs/guides/database/postgres/row-level-security?utm_source=chatgpt.com "Row Level Security | Supabase Docs"
+[8]: https://github.com/orgs/supabase/discussions/23383?utm_source=chatgpt.com "Does Anonymous Sign-In create new users every time?"
+[9]: https://supabase.com/docs/guides/auth/auth-anonymous?utm_source=chatgpt.com "Anonymous Sign-Ins | Supabase Docs"
+[10]: https://jsr.io/%40sigma/striprtf?utm_source=chatgpt.com "@sigma/striprtf - JSR"
+[11]: https://github.com/2vlad/edu-upload/commit/d7ba1223f0348a511b22e4ce949649dd2157c191 "Fix schema definition for OpenAI generateObject · 2vlad/edu-upload@d7ba122 · GitHub"
+[12]: https://supabase.com/docs/reference/javascript/storage-from-upload?utm_source=chatgpt.com "JavaScript: Upload a file"
+[13]: https://github.com/Fdawgs/node-unrtf?utm_source=chatgpt.com "Fdawgs/node-unrtf: Asynchronous Node.js wrapper for the ..."
+[14]: https://github.com/2vlad/edu-upload/commit/8670fbb0ec0cb27452b008931407f06a7248c2f1 "Update course and lesson management features · 2vlad/edu-upload@8670fbb · GitHub"

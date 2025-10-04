@@ -1,0 +1,691 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Supabase Integration",
+        "description": "Configure Supabase client, database schema, and authentication for course management",
+        "details": "Install @supabase/supabase-js, create lib/supabaseClient.ts singleton, setup environment variables (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY). Create database schema with tables: courses, lessons, source_files, course_assets with proper RLS policies. Implement anonymous authentication flow that checks existing session before creating new user to avoid duplicate accounts. Setup Storage buckets for course-uploads and course-assets with appropriate access policies.",
+        "testStrategy": "Test anonymous auth flow, verify RLS policies restrict access to user's own data, test storage bucket uploads with proper permissions",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install Supabase dependencies and setup environment variables",
+            "description": "Install @supabase/supabase-js package and configure environment variables for Supabase connection",
+            "dependencies": [],
+            "details": "Run npm install @supabase/supabase-js. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local file (create from .env.example template). Update .env.example to include the new Supabase environment variables for future reference.",
+            "status": "done",
+            "testStrategy": "Verify package installation in package.json and test environment variable loading"
+          },
+          {
+            "id": 2,
+            "title": "Create Supabase client singleton",
+            "description": "Create lib/supabaseClient.ts with configured Supabase client instance",
+            "dependencies": [
+              "1.1"
+            ],
+            "details": "Create lib/supabaseClient.ts file exporting a singleton Supabase client instance using createClient from @supabase/supabase-js. Configure with environment variables NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY. Include proper TypeScript types and error handling for missing environment variables.",
+            "status": "done",
+            "testStrategy": "Test client creation and basic connection to Supabase project"
+          },
+          {
+            "id": 3,
+            "title": "Design and create database schema",
+            "description": "Create SQL schema for courses, lessons, source_files, and course_assets tables with proper relationships",
+            "dependencies": [
+              "1.2"
+            ],
+            "details": "Design database schema with tables: courses (id, title, description, status, user_id, slug, created_at, updated_at), lessons (id, course_id, title, content, objectives, order_index), source_files (id, course_id, filename, file_path, uploaded_at), course_assets (id, course_id, asset_type, asset_path, created_at). Create foreign key relationships and indexes for performance.",
+            "status": "done",
+            "testStrategy": "Validate schema creation and test table relationships"
+          },
+          {
+            "id": 4,
+            "title": "Implement Row Level Security policies",
+            "description": "Setup RLS policies to ensure users can only access their own course data",
+            "dependencies": [
+              "1.3"
+            ],
+            "details": "Enable RLS on all tables. Create policies that allow users to insert, select, update, and delete only their own records based on user_id or auth.uid(). Set up policies for anonymous users to access published courses (read-only). Test policies ensure proper data isolation between users.",
+            "status": "done",
+            "testStrategy": "Test RLS policies with different user scenarios and verify data access restrictions"
+          },
+          {
+            "id": 5,
+            "title": "Setup anonymous authentication and Storage buckets",
+            "description": "Implement anonymous authentication flow and create Storage buckets with access policies",
+            "dependencies": [
+              "1.4"
+            ],
+            "details": "Implement anonymous authentication that checks for existing session before creating new users to prevent duplicates. Create Storage buckets: 'course-uploads' for PDF files and 'course-assets' for generated content. Configure bucket policies to allow authenticated users to upload/access their own files. Set up proper file organization with user-specific folders.",
+            "status": "done",
+            "testStrategy": "Test anonymous auth flow prevents duplicate accounts, verify storage upload permissions and file access"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Implement Multi-Format File Parser",
+        "description": "Create document parsers for DOCX, MD, TXT, RTF, HTML formats and image handling",
+        "details": "Install mammoth for DOCX parsing, striprtf for RTF, jsdom for HTML processing. Create lib/parsers/ directory with individual parser modules (pdf.ts, docx.ts, rtf.ts, md.ts, html.ts). Implement image handling for PNG/JPG/WebP upload to Supabase Storage. Create unified ExtractedFile interface with id, filename, mime, text, imagePath fields. Add file validation, size limits (20-30MB), and error handling for corrupted files.",
+        "testStrategy": "Test each parser with sample files, verify text extraction quality, test image upload to storage, validate file size and type restrictions",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Install required dependencies for multi-format parsing",
+            "description": "Install mammoth for DOCX parsing, striprtf for RTF parsing, jsdom for HTML processing, and any additional dependencies needed for MD and TXT parsing",
+            "dependencies": [],
+            "details": "Run npm install commands for mammoth, striprtf, jsdom packages. Update package.json with new dependencies. Verify installations work correctly with basic import tests. These libraries will provide the core parsing functionality for different document formats.",
+            "status": "pending",
+            "testStrategy": "Verify each package can be imported successfully and basic functionality works with simple test documents"
+          },
+          {
+            "id": 2,
+            "title": "Create lib/parsers directory and unified ExtractedFile interface",
+            "description": "Set up the parser directory structure and define the common interface that all parsers will return",
+            "dependencies": [],
+            "details": "Create lib/parsers/ directory structure. Define ExtractedFile interface with id, filename, mime, text, and imagePath fields in a types.ts file. This interface will standardize the output from all different parsers and ensure consistency across the application.",
+            "status": "pending",
+            "testStrategy": "Verify directory structure is created correctly and interface can be imported in other files"
+          },
+          {
+            "id": 3,
+            "title": "Implement individual parser modules for each format",
+            "description": "Create separate parser files for PDF, DOCX, RTF, MD, TXT, and HTML formats that all return the ExtractedFile interface",
+            "dependencies": [
+              "2.1",
+              "2.2"
+            ],
+            "details": "Create pdf.ts (refactor existing logic), docx.ts (using mammoth), rtf.ts (using striprtf), md.ts (plain text parsing), txt.ts (direct reading), and html.ts (using jsdom) in lib/parsers/. Each parser should handle file validation, text extraction, and return standardized ExtractedFile format. Include proper error handling for corrupted or invalid files.",
+            "status": "pending",
+            "testStrategy": "Test each parser with sample files of respective formats, verify text extraction quality and error handling for corrupted files"
+          },
+          {
+            "id": 4,
+            "title": "Implement image handling and Supabase Storage integration",
+            "description": "Add support for PNG/JPG/WebP image uploads to Supabase Storage with proper path management",
+            "dependencies": [
+              "2.2"
+            ],
+            "details": "Create image parser module that handles PNG/JPG/WebP formats. Implement Supabase Storage client for uploading images with proper bucket configuration and path generation. Add image metadata extraction and ensure imagePath field is populated in ExtractedFile interface. Handle image compression and optimization if needed.",
+            "status": "pending",
+            "testStrategy": "Test image upload to Supabase Storage, verify proper paths are generated, test with different image formats and sizes"
+          },
+          {
+            "id": 5,
+            "title": "Add file validation, size limits and error handling",
+            "description": "Implement comprehensive file validation including MIME type checking, size limits (20-30MB), and robust error handling for all supported formats",
+            "dependencies": [
+              "2.3",
+              "2.4"
+            ],
+            "details": "Create validation utility functions for MIME type detection, file size checking (20-30MB limit), and format-specific validation. Implement comprehensive error handling with user-friendly error messages for unsupported formats, oversized files, and corrupted documents. Add logging for debugging parsing issues. Ensure all parsers use consistent validation and error handling patterns.",
+            "status": "pending",
+            "testStrategy": "Test file size limits with large files, verify MIME type detection works correctly, test error handling with corrupted and unsupported files"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Refactor API Endpoint for Multi-Format Processing",
+        "description": "Replace /api/process-pdfs with /api/process-files supporting all document types",
+        "details": "Create new app/api/process-files/route.ts endpoint replacing process-pdfs. Implement MIME type detection and routing to appropriate parsers. Update FormData handling for mixed file types including images. Maintain backward compatibility by creating redirect from old endpoint. Add text normalization, chunking for large documents (2-5k tokens), and combined text aggregation.",
+        "testStrategy": "Test with various file combinations, verify proper MIME detection, test large file handling, validate API response format matches expected schema",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create new /api/process-files endpoint structure",
+            "description": "Create the new app/api/process-files/route.ts file with proper TypeScript structure and imports. Set up the basic endpoint handler with error handling and API key validation.",
+            "dependencies": [],
+            "details": "Create app/api/process-files/route.ts file. Import necessary modules: NextRequest, NextResponse from next/server, generateObject from ai, createOpenAI from @ai-sdk/openai, and zod for schema validation. Set up OpenAI client configuration using process.env.OPENAI_API_KEY. Implement basic POST function structure with try-catch error handling and API key validation similar to existing process-pdfs endpoint.",
+            "status": "pending",
+            "testStrategy": "Test endpoint creation and basic error handling, verify API key validation works correctly"
+          },
+          {
+            "id": 2,
+            "title": "Implement MIME type detection and file validation",
+            "description": "Add comprehensive MIME type detection for all supported file formats (PDF, DOCX, MD, TXT, RTF, HTML, PNG, JPG, WebP) with proper file validation and size limits.",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Create a MIME type detection function that identifies file types based on both file.type property and file extensions. Implement file validation with size limits (20-30MB as specified in task dependencies). Create constants for supported MIME types: application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/markdown, text/plain, application/rtf, text/html, image/png, image/jpeg, image/webp. Add file filtering and validation logic in the FormData processing section.",
+            "status": "pending",
+            "testStrategy": "Test MIME type detection accuracy with various file formats, verify size limit enforcement, test rejection of unsupported file types"
+          },
+          {
+            "id": 3,
+            "title": "Implement file routing to appropriate parsers",
+            "description": "Create router logic that directs different file types to their respective parser functions, integrating with the lib/parsers/ modules from task 2.",
+            "dependencies": [
+              "3.2"
+            ],
+            "details": "Import parser functions from lib/parsers/ directory (pdf.ts, docx.ts, rtf.ts, md.ts, html.ts modules). Create a routing function that takes a file and its MIME type and calls the appropriate parser. Handle image files separately by uploading to storage and storing the path. Implement Promise.all for parallel processing of multiple files. Create aggregation logic for combining extracted text from multiple documents while maintaining file source information.",
+            "status": "pending",
+            "testStrategy": "Test routing logic with mixed file types, verify parser integration works correctly, test parallel processing performance"
+          },
+          {
+            "id": 4,
+            "title": "Add text normalization and chunking for large documents",
+            "description": "Implement text processing features including normalization, chunking for large documents (2-5k tokens), and intelligent text aggregation for better AI processing.",
+            "dependencies": [
+              "3.3"
+            ],
+            "details": "Create text normalization function to clean extracted text (remove extra whitespace, fix encoding issues, standardize line breaks). Implement chunking logic for documents exceeding 2000-5000 tokens using simple token estimation (word count * 1.3). Create intelligent text aggregation that preserves document structure while combining content from multiple files. Add document separator markers between different source files. Ensure the combined text maintains readability and context for OpenAI processing.",
+            "status": "pending",
+            "testStrategy": "Test text normalization with various character encodings, verify chunking works with large documents, test aggregation maintains document context"
+          },
+          {
+            "id": 5,
+            "title": "Update OpenAI schema and add backward compatibility redirect",
+            "description": "Update the generateObject schema to handle multi-format content and create redirect logic from old /api/process-pdfs endpoint to maintain backward compatibility.",
+            "dependencies": [
+              "3.4"
+            ],
+            "details": "Update the OpenAI prompt and schema in generateObject to handle content from multiple file formats, not just PDFs. Modify the prompt text to refer to 'documents' instead of 'PDF documents'. Update the response schema to include source file information if needed. Create a redirect handler in the original app/api/process-pdfs/route.ts that redirects requests to the new /api/process-files endpoint while maintaining the same request/response format. Test that the existing upload page continues to work without modification during transition period.",
+            "status": "pending",
+            "testStrategy": "Test schema handles multi-format content correctly, verify backward compatibility redirect works, test that existing frontend continues to function properly"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Extend Zod Schema with Guidance Fields",
+        "description": "Update OpenAI generateObject schema to include guidance questions, tips, and outline bullets",
+        "details": "Extend existing Zod schema to include outline array with lesson_id, title, logline, bullets fields. Add guidance fields to lessons: guiding_questions (5-8 items), expansion_tips (3-6 items), examples_to_add (2-5 items). Update OpenAI prompt to generate guidance content in Russian. Ensure schema maintains backward compatibility with existing course data structure.",
+        "testStrategy": "Validate schema against sample data, test OpenAI generation produces expected guidance fields, verify Russian language output quality",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define extended lesson schema with guidance fields",
+            "description": "Add new Zod schema fields to the lesson object for guidance questions, tips, and examples in Russian",
+            "dependencies": [],
+            "details": "Extend the existing lesson schema in app/api/process-pdfs/route.ts to include: guiding_questions as z.array(z.string()).min(5).max(8).describe('Направляющие вопросы на русском языке'), expansion_tips as z.array(z.string()).min(3).max(6).describe('Советы по расширению на русском языке'), examples_to_add as z.array(z.string()).min(2).max(5).describe('Примеры для добавления на русском языке'). Maintain backward compatibility with existing lesson structure.",
+            "status": "pending",
+            "testStrategy": "Validate schema accepts new fields with correct array lengths, test backward compatibility with existing lesson data"
+          },
+          {
+            "id": 2,
+            "title": "Add course outline schema structure",
+            "description": "Create new Zod schema for course outline with lesson_id, title, logline, and bullets fields",
+            "dependencies": [],
+            "details": "Add outline array to the main course schema: outline: z.array(z.object({ lesson_id: z.string().describe('Идентификатор урока'), title: z.string().describe('Заголовок урока на русском языке'), logline: z.string().describe('Краткое описание урока на русском языке'), bullets: z.array(z.string()).min(3).max(5).describe('Ключевые пункты урока на русском языке') })). This should be a separate field from lessons array to provide a condensed overview.",
+            "status": "pending",
+            "testStrategy": "Verify outline structure matches lesson count, validate bullet point constraints, test Russian language descriptions"
+          },
+          {
+            "id": 3,
+            "title": "Update OpenAI prompt for guidance content generation",
+            "description": "Modify the OpenAI prompt to instruct generation of guidance fields in Russian language",
+            "dependencies": [
+              "4.1",
+              "4.2"
+            ],
+            "details": "Update the prompt in app/api/process-pdfs/route.ts to include instructions for generating guidance content. Add specific sections requesting: 5-8 направляющих вопросов для каждого урока, 3-6 советов по расширению материала, 2-5 практических примеров для добавления. Emphasize that all guidance content should be in Russian and contextually relevant to the lesson content extracted from the PDFs.",
+            "status": "pending",
+            "testStrategy": "Test prompt generates guidance fields within specified ranges, verify Russian language output quality, check contextual relevance to lesson content"
+          },
+          {
+            "id": 4,
+            "title": "Implement schema validation and error handling",
+            "description": "Add comprehensive validation for new schema fields with proper error messages",
+            "dependencies": [
+              "4.1",
+              "4.2"
+            ],
+            "details": "Implement validation middleware to ensure: guidance arrays meet min/max constraints, Russian language content is properly encoded, outline lesson_ids match actual lesson ids, backward compatibility with existing course data structures. Add specific error messages in Russian for validation failures. Include fallback handling if OpenAI doesn't generate guidance fields - provide empty arrays rather than failing.",
+            "status": "pending",
+            "testStrategy": "Test validation catches constraint violations, verify error messages are in Russian, test backward compatibility with old course data, validate fallback behavior"
+          },
+          {
+            "id": 5,
+            "title": "Update TypeScript interfaces for new schema fields",
+            "description": "Extend TypeScript interfaces in course and lesson pages to include new guidance and outline fields",
+            "dependencies": [
+              "4.1",
+              "4.2",
+              "4.3",
+              "4.4"
+            ],
+            "details": "Update the Lesson interface in app/course/page.tsx and any other relevant files to include: guiding_questions?: string[], expansion_tips?: string[], examples_to_add?: string[]. Add new CourseOutline interface with lesson_id, title, logline, bullets fields. Update CourseData interface to include outline?: CourseOutline[]. Make all new fields optional to maintain backward compatibility with existing localStorage data.",
+            "status": "pending",
+            "testStrategy": "Verify TypeScript compilation succeeds, test existing course pages work with extended interfaces, validate optional field handling in UI components"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Create Course Outline Page",
+        "description": "Build new /outline page showing vertical list of lessons with bullets and editing capabilities",
+        "details": "Create app/outline/page.tsx with vertical lesson list displaying title, logline, and 3-5 bullet points per lesson. Implement inline editing for course title/description. Add source file management with 'Edit sources', 'Add files', and 'Update outline' buttons. Include drag-and-drop reordering of lessons. Redirect from upload page to outline instead of lessons. Style with consistent UI patterns matching existing design.",
+        "testStrategy": "Test outline display with generated course data, verify drag-and-drop reordering, test inline editing functionality, validate source file management",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create outline page component structure",
+            "description": "Create the main outline page component with vertical layout for course outline display",
+            "dependencies": [],
+            "details": "Create app/outline/page.tsx with the basic component structure. Use the existing CourseData and Lesson interfaces from the lessons page. Set up state management for course data loaded from localStorage ('courseData' key). Include header section with course title/description and back navigation to lessons. Follow the existing design patterns with rounded buttons (50px border radius for primary buttons), proper typography, and consistent spacing from other pages.",
+            "status": "pending",
+            "testStrategy": "Test that the page renders correctly, loads course data from localStorage, displays proper header navigation, and follows consistent styling patterns"
+          },
+          {
+            "id": 2,
+            "title": "Implement vertical lesson list with bullets",
+            "description": "Build the main lesson list displaying title, logline, and 3-5 bullet points per lesson in vertical layout",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Create a vertical list of lesson cards that displays lesson title prominently, extract logline from lesson content (first paragraph or summary), and show 3-5 key bullet points from lesson objectives. Use Card components consistent with existing pages. Each lesson card should be full-width with proper spacing between lessons. Include lesson numbers/ordering indicators. Handle truncation for long content with proper ellipsis. Style bullets with consistent formatting and spacing.",
+            "status": "pending",
+            "testStrategy": "Verify lesson data renders correctly, bullet points are properly formatted, content truncation works, and list scrolls properly with many lessons"
+          },
+          {
+            "id": 3,
+            "title": "Add inline editing for course title and description",
+            "description": "Implement inline editing functionality for course title and description in the header section",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Add edit/save toggle buttons for course title and description in the header. Use Input and Textarea components from the UI library. Implement edit state management similar to the lesson editing in lessons/page.tsx. Include save/cancel functionality that updates localStorage ('courseData' key). Use the existing edit icons (Edit2, Save, X) and button styling patterns. Ensure proper validation and error handling for empty titles.",
+            "status": "pending",
+            "testStrategy": "Test inline editing toggle, data persistence to localStorage, cancel functionality resets changes, and validation prevents empty titles"
+          },
+          {
+            "id": 4,
+            "title": "Implement source file management buttons",
+            "description": "Add 'Edit sources', 'Add files', and 'Update outline' buttons with proper styling and initial functionality",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Create three action buttons in the header or top section: 'Edit sources' (outline variant), 'Add files' (outline variant), 'Update outline' (primary variant with rounded-[30px] styling). Use existing UI patterns and icon choices (FileText, Upload, RefreshCw or similar). Initially implement button click handlers that show placeholder functionality or console logs. Position buttons appropriately in the header section alongside the course title/description area. Ensure responsive layout on smaller screens.",
+            "status": "pending",
+            "testStrategy": "Verify buttons render with correct styling, click handlers work, responsive layout maintains usability, and buttons follow design system patterns"
+          },
+          {
+            "id": 5,
+            "title": "Add drag-and-drop lesson reordering and redirect logic",
+            "description": "Implement drag-and-drop reordering of lessons and update upload page to redirect to outline instead of lessons",
+            "dependencies": [
+              "5.1",
+              "5.2"
+            ],
+            "details": "Implement drag-and-drop functionality using the same pattern as lessons/page.tsx with handleDragStart, handleDragOver, handleDrop, and handleDragEnd functions. Update lesson order in courseData state and persist to localStorage. Add visual feedback during dragging (cursor styles, drag indicators). Modify app/page.tsx to redirect to '/outline' instead of '/lessons' after PDF processing completes (line 112: router.push('/outline')). Ensure lesson reordering works smoothly and updates the vertical list immediately.",
+            "status": "pending",
+            "testStrategy": "Test drag-and-drop reordering updates lesson order correctly, changes persist in localStorage, visual feedback works during drag operations, and upload page redirects to outline page after processing"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Implement Non-Destructive Course Updates",
+        "description": "Add capability to update course outline without losing manually edited content",
+        "details": "Implement intelligent merge logic that preserves existing lesson IDs and manually edited content while adding new lessons and updating guidance fields. Create diff preview showing proposed changes before applying. Add prompt engineering to instruct AI to maintain existing structure. Store edit timestamps to track manual vs AI-generated content. Implement conflict resolution for overlapping changes.",
+        "testStrategy": "Test update workflow preserves edited content, verify new lessons are added correctly, test diff preview accuracy, validate no data loss during updates",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create course versioning and edit tracking system",
+            "description": "Implement metadata tracking to distinguish between AI-generated and manually edited content with timestamps",
+            "dependencies": [],
+            "details": "Extend the CourseData interface to include version metadata, edit timestamps, and source tracking (ai-generated vs manual). Add lastModified, editHistory, and isManuallyEdited fields to lessons. Create utility functions to track edit sources and timestamps. Store this metadata in localStorage alongside course data to preserve manual edit information across sessions.",
+            "status": "pending",
+            "testStrategy": "Test metadata tracking during lesson edits, verify timestamps are recorded correctly, validate manual vs AI-generated content distinction"
+          },
+          {
+            "id": 2,
+            "title": "Implement intelligent merge logic for course updates",
+            "description": "Create merge algorithms that preserve existing lesson IDs and manually edited content while integrating new lessons",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Create lib/courseUpdates.ts with merge functions that: 1) Match existing lessons by ID and preserve manual edits, 2) Add new lessons from updated content while maintaining existing lesson order, 3) Update only AI-generated guidance fields (objectives, tips) while preserving manual content edits, 4) Handle lesson reordering and ID conflicts intelligently, 5) Implement conflict resolution strategies for overlapping changes.",
+            "status": "pending",
+            "testStrategy": "Test merge logic with various scenarios: new lessons added, existing lessons preserved, manual edits maintained, guidance fields updated appropriately"
+          },
+          {
+            "id": 3,
+            "title": "Create diff preview system for proposed changes",
+            "description": "Build UI component to show before/after comparison of course updates before applying changes",
+            "dependencies": [
+              "6.2"
+            ],
+            "details": "Create components/CourseUpdatePreview.tsx with diff visualization showing: 1) New lessons to be added, 2) Existing lessons that will be preserved, 3) Guidance fields that will be updated, 4) Manual edits that will be protected, 5) Side-by-side comparison view with approve/reject options for individual changes. Use color coding to distinguish between different types of changes (additions, updates, preserved content).",
+            "status": "pending",
+            "testStrategy": "Test diff preview accuracy against actual merge results, verify all change types are clearly displayed, test user interaction with approve/reject options"
+          },
+          {
+            "id": 4,
+            "title": "Enhance OpenAI prompt engineering for structure preservation",
+            "description": "Update AI prompts to instruct GPT to maintain existing course structure and lesson IDs when generating updates",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Modify app/api/process-pdfs/route.ts to accept existing course data and instruct OpenAI to: 1) Preserve existing lesson IDs and manually edited content, 2) Generate new lessons with incremental IDs, 3) Focus updates on guidance fields (objectives, tips, examples), 4) Maintain logical lesson sequence, 5) Include existing course context in prompt to ensure coherent updates. Add request parameter to differentiate between new course creation and course updates.",
+            "status": "pending",
+            "testStrategy": "Test AI responses maintain existing structure, verify new content integrates logically, validate lesson ID preservation and incremental assignment"
+          },
+          {
+            "id": 5,
+            "title": "Integrate update workflow in lessons page",
+            "description": "Add course update functionality to the lessons page with diff preview and merge application",
+            "dependencies": [
+              "6.2",
+              "6.3",
+              "6.4"
+            ],
+            "details": "Add 'Update Course' button to lessons page header alongside 'Publish Course'. Implement file upload modal for additional documents. Connect to enhanced API endpoint for course updates. Display CourseUpdatePreview component for user review. Apply approved changes using merge logic while preserving localStorage data integrity. Add rollback functionality in case of errors. Show success/error notifications for update operations.",
+            "status": "pending",
+            "testStrategy": "Test complete update workflow from file upload to merge application, verify no data loss during updates, test rollback functionality, validate user experience flow"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Redesign Lessons Page with Guidance Features",
+        "description": "Transform lessons page to vertical TOC layout with guidance panel and enhanced editing",
+        "details": "Replace horizontal carousel with left sidebar TOC and right-side lesson editor. Add Guidance section displaying guiding_questions, expansion_tips, examples_to_add with 'Insert as outline' and 'Regenerate' buttons. Implement image attachment from Storage with drag-and-drop insertion into markdown content. Add toggle between Outline and Cards view for backward compatibility. Update lesson editing to support all new fields.",
+        "testStrategy": "Test TOC navigation, verify guidance features work correctly, test image insertion workflow, validate toggle between view modes",
+        "priority": "medium",
+        "dependencies": [
+          6
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create TOC Sidebar Component with Navigation",
+            "description": "Replace horizontal carousel with left sidebar displaying table of contents with clickable lesson navigation",
+            "dependencies": [],
+            "details": "Create a new sidebar component using the existing SidebarProvider from @/components/ui/sidebar. Replace the horizontal carousel (scrollContainerRef, scroll buttons) with a vertical TOC sidebar showing lesson titles as clickable navigation items. Implement active lesson highlighting and smooth selection transition. Use existing Card styling patterns and maintain drag-and-drop reordering functionality in the sidebar. Update layout to be flex with sidebar on left and content area on right.",
+            "status": "pending",
+            "testStrategy": "Test TOC navigation between lessons, verify active lesson highlighting, test drag-and-drop reordering in sidebar format"
+          },
+          {
+            "id": 2,
+            "title": "Implement Guidance Panel with Display Features",
+            "description": "Add guidance section displaying guiding_questions, expansion_tips, examples_to_add fields with proper UI layout",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Create guidance panel component that displays the new lesson fields (guiding_questions, expansion_tips, examples_to_add) from the enhanced Lesson interface. Position the guidance panel in the lesson editor area, possibly as a collapsible section or secondary panel. Use existing UI components like Card, proper typography, and list formatting. Display arrays as bulleted lists with clear section headers. Ensure responsive design that works with the new sidebar layout.",
+            "status": "pending",
+            "testStrategy": "Test guidance content display for all field types, verify responsive layout with sidebar, test collapsible functionality if implemented"
+          },
+          {
+            "id": 3,
+            "title": "Add Insert as Outline and Regenerate Buttons",
+            "description": "Implement action buttons for guidance features with 'Insert as outline' and 'Regenerate' functionality",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Add two action buttons to each guidance section: 'Insert as outline' (inserts selected guidance items as markdown outline into lesson content) and 'Regenerate' (calls API to regenerate specific guidance section). Use existing Button component with appropriate styling (rounded-[30px] for primary actions). Implement modal confirmation for regenerate actions. Create utility functions to format guidance items as markdown outline. Handle button states (loading, disabled) during API calls.",
+            "status": "pending",
+            "testStrategy": "Test outline insertion into markdown content, verify regenerate API calls, test button states and loading indicators"
+          },
+          {
+            "id": 4,
+            "title": "Implement Image Attachment with Drag-and-Drop",
+            "description": "Add image upload functionality with drag-and-drop insertion into markdown content editor",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Create image upload component that supports drag-and-drop from local files. Implement file handling for image types (PNG, JPG, WebP). Add upload functionality to Supabase Storage (when available) or temporary local storage. Create markdown insertion functionality that adds image references at cursor position in the Textarea editor. Add image preview and management UI. Use existing drag-and-drop patterns from the current lesson reordering implementation as reference.",
+            "status": "pending",
+            "testStrategy": "Test drag-and-drop image upload, verify markdown insertion at correct cursor position, test image preview functionality"
+          },
+          {
+            "id": 5,
+            "title": "Add View Toggle Between Outline and Cards Mode",
+            "description": "Implement toggle switch to switch between new vertical TOC layout and original horizontal cards view for backward compatibility",
+            "dependencies": [
+              "7.1",
+              "7.2",
+              "7.3",
+              "7.4"
+            ],
+            "details": "Add toggle component (using existing Toggle from @/components/ui/toggle) in the header section to switch between 'Outline' (new vertical TOC) and 'Cards' (original horizontal carousel) view modes. Preserve view preference in localStorage. Conditionally render either the new sidebar layout or original carousel based on toggle state. Ensure all functionality (editing, drag-and-drop, lesson navigation) works in both modes. Update lesson editing modal to support new guidance fields regardless of view mode.",
+            "status": "pending",
+            "testStrategy": "Test toggle between view modes, verify localStorage persistence of preference, test all features work in both modes"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Implement Course Publishing System",
+        "description": "Create publish functionality that saves courses to Supabase with proper data relationships",
+        "details": "Create server action for publishing courses to Supabase tables. Implement auto-authentication for anonymous users if not logged in. Handle file uploads to Storage buckets with proper paths. Generate unique course slugs and update course status to published. Create upsert logic for both new and updated courses. Implement proper error handling and rollback for failed publishes.",
+        "testStrategy": "Test complete publish flow from draft to published, verify all data saved correctly, test anonymous auth during publish, validate storage uploads",
+        "priority": "high",
+        "dependencies": [
+          7
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create Supabase configuration and database schema",
+            "description": "Set up Supabase client configuration and create database tables for courses, lessons, and user data",
+            "dependencies": [],
+            "details": "Install @supabase/supabase-js package and create lib/supabase.ts configuration file. Design database schema with courses table (id, title, description, slug, status, created_at, user_id), lessons table (id, course_id, title, content, objectives, order_index), and user authentication setup. Create SQL migrations for table creation with proper relationships and indexes.",
+            "status": "pending",
+            "testStrategy": "Test Supabase connection, verify table creation, test basic CRUD operations on tables"
+          },
+          {
+            "id": 2,
+            "title": "Implement anonymous user authentication system",
+            "description": "Create auto-authentication for anonymous users during course publishing",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Implement authentication logic that automatically creates anonymous user sessions when users attempt to publish without being logged in. Use Supabase auth.signInAnonymously() method. Create auth utilities in lib/auth.ts to handle user session management, check authentication status, and provide fallback anonymous authentication. Store user session state in localStorage for persistence.",
+            "status": "pending",
+            "testStrategy": "Test anonymous auth creation, verify session persistence, test auth state checking utilities"
+          },
+          {
+            "id": 3,
+            "title": "Create course publishing server action",
+            "description": "Implement server action to handle course data submission to Supabase",
+            "dependencies": [
+              "8.1",
+              "8.2"
+            ],
+            "details": "Create app/actions/publish-course.ts server action using 'use server' directive. Implement publishCourse function that accepts course data, generates unique slugs using nanoid or similar, validates input data, and saves to Supabase courses and lessons tables. Handle course status updates (draft -> published). Implement upsert logic to handle both new courses and updates to existing courses. Include proper error handling and validation.",
+            "status": "pending",
+            "testStrategy": "Test server action with valid/invalid data, verify slug generation uniqueness, test upsert logic for new and existing courses"
+          },
+          {
+            "id": 4,
+            "title": "Implement file upload system for Supabase Storage",
+            "description": "Create file upload functionality for course materials and images to Supabase Storage buckets",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Set up Supabase Storage buckets for course files and images. Create upload utilities in lib/storage.ts to handle file uploads with proper naming conventions (course-id/filename). Implement image optimization and resizing for web delivery. Add file validation (size limits, file types). Create storage bucket policies for public read access and authenticated write access. Handle file path generation and URL retrieval.",
+            "status": "pending",
+            "testStrategy": "Test file uploads with various formats, verify storage bucket permissions, test file size limits and validation"
+          },
+          {
+            "id": 5,
+            "title": "Integrate publishing functionality into lessons page",
+            "description": "Update lessons page to use the new publishing system and connect to Supabase backend",
+            "dependencies": [
+              "8.3",
+              "8.4"
+            ],
+            "details": "Modify app/lessons/page.tsx to replace localStorage publishing with Supabase server action. Update handlePublish function to call the publishCourse server action, handle loading states during publish, display success/error messages using toast notifications. Implement proper error handling and rollback mechanisms for failed publishes. Add publish status indicators and progress tracking. Ensure backwards compatibility with existing localStorage data during transition.",
+            "status": "pending",
+            "testStrategy": "Test complete publish flow from lessons page, verify error handling, test loading states and user feedback, validate data persistence in Supabase"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Create Course Management Pages",
+        "description": "Build /courses page for listing user's courses and /courses/[slug] for public viewing",
+        "details": "Create app/courses/page.tsx with Drafts/Published tabs showing user's courses with filters by status. Implement course actions: Open, Publish/Unpublish, Delete with proper confirmations. Create app/courses/[slug]/page.tsx for read-only public course viewing. Add course metadata display (created/updated dates, lesson count). Implement proper RLS queries to show only user's courses in management view.",
+        "testStrategy": "Test course listing with proper filtering, verify public course viewing works, test course actions (publish/unpublish/delete), validate RLS security",
+        "priority": "medium",
+        "dependencies": [
+          8
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create course management page layout and navigation",
+            "description": "Create app/courses/page.tsx with header navigation, tabs for Drafts/Published courses, and basic page structure",
+            "dependencies": [],
+            "details": "Create the main courses page with header containing Back to Upload button, page title 'My Courses', and tab navigation between 'Drafts' and 'Published' courses. Use existing UI components (Card, Button, Tabs) and follow design patterns from existing pages. Include responsive layout with max-width container and proper spacing.",
+            "status": "pending",
+            "testStrategy": "Test page loads correctly, tab navigation works, responsive layout on different screen sizes"
+          },
+          {
+            "id": 2,
+            "title": "Implement course listing with localStorage integration",
+            "description": "Add course data fetching from localStorage and display course cards with metadata",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Read course data from localStorage (courseData and publishedCourse keys), filter courses by status based on active tab. Display course cards showing title, description, creation date, lesson count, and publish status. Use existing Card component styling with proper truncation for long text and consistent spacing.",
+            "status": "pending",
+            "testStrategy": "Test with sample course data, verify filtering works correctly, test with empty states"
+          },
+          {
+            "id": 3,
+            "title": "Add course action buttons and confirmation dialogs",
+            "description": "Implement Open, Publish/Unpublish, and Delete actions with proper confirmation dialogs",
+            "dependencies": [
+              "9.2"
+            ],
+            "details": "Add action buttons to each course card: Open (navigate to /lessons), Publish/Unpublish (toggle status and move between tabs), Delete (with confirmation dialog). Use existing Dialog components, Button styling with rounded-[30px] class, and proper state management for confirmation flows. Handle localStorage updates for course status changes.",
+            "status": "pending",
+            "testStrategy": "Test all actions work correctly, confirmation dialogs appear, localStorage updates properly, navigation works"
+          },
+          {
+            "id": 4,
+            "title": "Create public course viewing page with slug routing",
+            "description": "Build app/courses/[slug]/page.tsx for read-only public course viewing",
+            "dependencies": [
+              "9.2"
+            ],
+            "details": "Create dynamic route page that accepts course slug parameter, fetch course data from localStorage using publishedCourse key or course ID. Display course in read-only format similar to existing /course page but without edit capabilities. Include course metadata (created date, lesson count) and navigation between lessons. Handle course not found states gracefully.",
+            "status": "pending",
+            "testStrategy": "Test with valid course slugs, handle invalid slugs gracefully, verify read-only functionality, test lesson navigation"
+          },
+          {
+            "id": 5,
+            "title": "Add course metadata display and filtering options",
+            "description": "Enhance course cards with detailed metadata and implement status filtering",
+            "dependencies": [
+              "9.3",
+              "9.4"
+            ],
+            "details": "Add course metadata display including created/updated timestamps, lesson count, and status badges. Implement filtering options for course status (all, draft, published) with clear visual indicators. Format dates using appropriate date formatting, add loading states for data fetching, and ensure proper accessibility with screen reader support.",
+            "status": "pending",
+            "testStrategy": "Test metadata displays correctly, filtering works as expected, verify accessibility features, test with various course states"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Update Upload Page for Multi-Format Support",
+        "description": "Enhance upload interface to accept all supported file formats with improved file queue",
+        "details": "Update app/page.tsx file input accept attribute to include DOCX, MD, TXT, RTF, HTML, PNG, JPG, WebP. Enhance file queue display with MIME type icons and better file information. Update drag-and-drop handling for multiple formats. Add file type validation on frontend before upload. Update processing messages for multi-format handling. Redirect to /outline instead of /lessons after processing.",
+        "testStrategy": "Test file uploads with all supported formats, verify file queue displays correctly, test drag-and-drop with mixed file types, validate proper redirects",
+        "priority": "medium",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Update file input accept attribute for all supported formats",
+            "description": "Modify the file input accept attribute in app/page.tsx to support DOCX, MD, TXT, RTF, HTML, PNG, JPG, WebP formats in addition to PDF",
+            "dependencies": [],
+            "details": "Update the file input accept attribute from '.pdf' to include all supported formats: '.pdf,.docx,.md,.txt,.rtf,.html,.png,.jpg,.jpeg,.webp'. This change should be applied to both the hidden file input element and any file selection validation logic.",
+            "status": "pending",
+            "testStrategy": "Verify file input dialog shows all supported file types when opened, test that users can select files of each supported format"
+          },
+          {
+            "id": 2,
+            "title": "Add MIME type validation for multi-format support",
+            "description": "Update file validation logic in handleDrop and handleFileSelect functions to accept all supported MIME types instead of just PDF",
+            "dependencies": [
+              "10.1"
+            ],
+            "details": "Replace the hardcoded 'application/pdf' MIME type checks with a comprehensive list including: 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown', 'text/plain', 'application/rtf', 'text/html', 'image/png', 'image/jpeg', 'image/webp'. Create a utility function to validate supported file types.",
+            "status": "pending",
+            "testStrategy": "Test drag-and-drop with each supported file format, verify unsupported file types are rejected, test mixed file type uploads"
+          },
+          {
+            "id": 3,
+            "title": "Enhance file queue display with MIME type icons",
+            "description": "Update the file list display to show appropriate icons based on file MIME type and improve file information presentation",
+            "dependencies": [
+              "10.2"
+            ],
+            "details": "Replace the generic FileText icon with conditional icons based on file type (e.g., Image icon for PNG/JPG/WebP, FileText for documents, Code icon for HTML/MD). Add MIME type display alongside file size. Import additional icons from lucide-react like Image, Code, File icons. Update the file display component to show file type-specific information.",
+            "status": "pending",
+            "testStrategy": "Verify correct icons display for each file type, test file information accuracy, ensure responsive layout with different file types"
+          },
+          {
+            "id": 4,
+            "title": "Update processing messages for multi-format handling",
+            "description": "Modify processing progress messages to reflect multi-format file processing instead of PDF-specific messaging",
+            "dependencies": [
+              "10.3"
+            ],
+            "details": "Update Russian processing messages in the useEffect hook to be format-agnostic: replace 'Чтение PDF-файлов...' with 'Обработка файлов...', update other messages to reflect general document processing. Update the file count display logic to handle mixed file types appropriately. Ensure all user-facing text reflects multi-format support.",
+            "status": "pending",
+            "testStrategy": "Test processing flow with different file types, verify appropriate messages display, test with mixed file uploads to ensure correct file count and messaging"
+          },
+          {
+            "id": 5,
+            "title": "Update redirect destination from lessons to outline page",
+            "description": "Change the post-processing redirect from /lessons to /outline page to align with new course creation workflow",
+            "dependencies": [
+              "10.4"
+            ],
+            "details": "Update the router.push('/lessons') call in the handleCreateCourse function to router.push('/outline'). This change aligns with the new workflow where users first review and edit the course outline before accessing individual lessons. Ensure the courseData is still properly stored in localStorage for the outline page to consume.",
+            "status": "pending",
+            "testStrategy": "Test successful course creation redirects to outline page, verify courseData is accessible on outline page, test the complete upload-to-outline workflow"
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "created": "2025-10-04T13:37:34.249Z",
+      "updated": "2025-10-04T18:09:51.432Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
