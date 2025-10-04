@@ -109,7 +109,7 @@ export default function HomePage() {
 
       // Small delay to show completion
       setTimeout(() => {
-        router.push("/lessons")
+        router.push("/outline")
       }, 500)
     } catch (error) {
       console.error("Error creating course:", error)

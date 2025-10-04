@@ -210,7 +210,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -218,7 +218,7 @@
             "description": "Add new Zod schema fields to the lesson object for guidance questions, tips, and examples in Russian",
             "dependencies": [],
             "details": "Extend the existing lesson schema in app/api/process-pdfs/route.ts to include: guiding_questions as z.array(z.string()).min(5).max(8).describe('Направляющие вопросы на русском языке'), expansion_tips as z.array(z.string()).min(3).max(6).describe('Советы по расширению на русском языке'), examples_to_add as z.array(z.string()).min(2).max(5).describe('Примеры для добавления на русском языке'). Maintain backward compatibility with existing lesson structure.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Validate schema accepts new fields with correct array lengths, test backward compatibility with existing lesson data"
           },
           {
@@ -227,7 +227,7 @@
             "description": "Create new Zod schema for course outline with lesson_id, title, logline, and bullets fields",
             "dependencies": [],
             "details": "Add outline array to the main course schema: outline: z.array(z.object({ lesson_id: z.string().describe('Идентификатор урока'), title: z.string().describe('Заголовок урока на русском языке'), logline: z.string().describe('Краткое описание урока на русском языке'), bullets: z.array(z.string()).min(3).max(5).describe('Ключевые пункты урока на русском языке') })). This should be a separate field from lessons array to provide a condensed overview.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify outline structure matches lesson count, validate bullet point constraints, test Russian language descriptions"
           },
           {
@@ -239,7 +239,7 @@
               "4.2"
             ],
             "details": "Update the prompt in app/api/process-pdfs/route.ts to include instructions for generating guidance content. Add specific sections requesting: 5-8 направляющих вопросов для каждого урока, 3-6 советов по расширению материала, 2-5 практических примеров для добавления. Emphasize that all guidance content should be in Russian and contextually relevant to the lesson content extracted from the PDFs.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test prompt generates guidance fields within specified ranges, verify Russian language output quality, check contextual relevance to lesson content"
           },
           {
@@ -251,7 +251,7 @@
               "4.2"
             ],
             "details": "Implement validation middleware to ensure: guidance arrays meet min/max constraints, Russian language content is properly encoded, outline lesson_ids match actual lesson ids, backward compatibility with existing course data structures. Add specific error messages in Russian for validation failures. Include fallback handling if OpenAI doesn't generate guidance fields - provide empty arrays rather than failing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test validation catches constraint violations, verify error messages are in Russian, test backward compatibility with old course data, validate fallback behavior"
           },
           {
@@ -265,7 +265,7 @@
               "4.4"
             ],
             "details": "Update the Lesson interface in app/course/page.tsx and any other relevant files to include: guiding_questions?: string[], expansion_tips?: string[], examples_to_add?: string[]. Add new CourseOutline interface with lesson_id, title, logline, bullets fields. Update CourseData interface to include outline?: CourseOutline[]. Make all new fields optional to maintain backward compatibility with existing localStorage data.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify TypeScript compilation succeeds, test existing course pages work with extended interfaces, validate optional field handling in UI components"
           }
         ]
@@ -280,7 +280,7 @@
         "dependencies": [
           4
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -288,7 +288,7 @@
             "description": "Create the main outline page component with vertical layout for course outline display",
             "dependencies": [],
             "details": "Create app/outline/page.tsx with the basic component structure. Use the existing CourseData and Lesson interfaces from the lessons page. Set up state management for course data loaded from localStorage ('courseData' key). Include header section with course title/description and back navigation to lessons. Follow the existing design patterns with rounded buttons (50px border radius for primary buttons), proper typography, and consistent spacing from other pages.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test that the page renders correctly, loads course data from localStorage, displays proper header navigation, and follows consistent styling patterns"
           },
           {
@@ -299,7 +299,7 @@
               "5.1"
             ],
             "details": "Create a vertical list of lesson cards that displays lesson title prominently, extract logline from lesson content (first paragraph or summary), and show 3-5 key bullet points from lesson objectives. Use Card components consistent with existing pages. Each lesson card should be full-width with proper spacing between lessons. Include lesson numbers/ordering indicators. Handle truncation for long content with proper ellipsis. Style bullets with consistent formatting and spacing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify lesson data renders correctly, bullet points are properly formatted, content truncation works, and list scrolls properly with many lessons"
           },
           {
@@ -310,7 +310,7 @@
               "5.1"
             ],
             "details": "Add edit/save toggle buttons for course title and description in the header. Use Input and Textarea components from the UI library. Implement edit state management similar to the lesson editing in lessons/page.tsx. Include save/cancel functionality that updates localStorage ('courseData' key). Use the existing edit icons (Edit2, Save, X) and button styling patterns. Ensure proper validation and error handling for empty titles.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test inline editing toggle, data persistence to localStorage, cancel functionality resets changes, and validation prevents empty titles"
           },
           {
@@ -321,7 +321,7 @@
               "5.1"
             ],
             "details": "Create three action buttons in the header or top section: 'Edit sources' (outline variant), 'Add files' (outline variant), 'Update outline' (primary variant with rounded-[30px] styling). Use existing UI patterns and icon choices (FileText, Upload, RefreshCw or similar). Initially implement button click handlers that show placeholder functionality or console logs. Position buttons appropriately in the header section alongside the course title/description area. Ensure responsive layout on smaller screens.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify buttons render with correct styling, click handlers work, responsive layout maintains usability, and buttons follow design system patterns"
           },
           {
@@ -333,7 +333,7 @@
               "5.2"
             ],
             "details": "Implement drag-and-drop functionality using the same pattern as lessons/page.tsx with handleDragStart, handleDragOver, handleDrop, and handleDragEnd functions. Update lesson order in courseData state and persist to localStorage. Add visual feedback during dragging (cursor styles, drag indicators). Modify app/page.tsx to redirect to '/outline' instead of '/lessons' after PDF processing completes (line 112: router.push('/outline')). Ensure lesson reordering works smoothly and updates the vertical list immediately.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test drag-and-drop reordering updates lesson order correctly, changes persist in localStorage, visual feedback works during drag operations, and upload page redirects to outline page after processing"
           }
         ]
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-04T18:26:42.836Z",
+      "updated": "2025-10-04T18:33:17.805Z",
       "description": "Tasks for master context"
     }
   }
