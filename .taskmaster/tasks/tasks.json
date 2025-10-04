@@ -348,7 +348,7 @@
         "dependencies": [
           5
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -356,7 +356,7 @@
             "description": "Implement metadata tracking to distinguish between AI-generated and manually edited content with timestamps",
             "dependencies": [],
             "details": "Extend the CourseData interface to include version metadata, edit timestamps, and source tracking (ai-generated vs manual). Add lastModified, editHistory, and isManuallyEdited fields to lessons. Create utility functions to track edit sources and timestamps. Store this metadata in localStorage alongside course data to preserve manual edit information across sessions.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test metadata tracking during lesson edits, verify timestamps are recorded correctly, validate manual vs AI-generated content distinction"
           },
           {
@@ -367,7 +367,7 @@
               "6.1"
             ],
             "details": "Create lib/courseUpdates.ts with merge functions that: 1) Match existing lessons by ID and preserve manual edits, 2) Add new lessons from updated content while maintaining existing lesson order, 3) Update only AI-generated guidance fields (objectives, tips) while preserving manual content edits, 4) Handle lesson reordering and ID conflicts intelligently, 5) Implement conflict resolution strategies for overlapping changes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test merge logic with various scenarios: new lessons added, existing lessons preserved, manual edits maintained, guidance fields updated appropriately"
           },
           {
@@ -378,7 +378,7 @@
               "6.2"
             ],
             "details": "Create components/CourseUpdatePreview.tsx with diff visualization showing: 1) New lessons to be added, 2) Existing lessons that will be preserved, 3) Guidance fields that will be updated, 4) Manual edits that will be protected, 5) Side-by-side comparison view with approve/reject options for individual changes. Use color coding to distinguish between different types of changes (additions, updates, preserved content).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test diff preview accuracy against actual merge results, verify all change types are clearly displayed, test user interaction with approve/reject options"
           },
           {
@@ -389,7 +389,7 @@
               "6.1"
             ],
             "details": "Modify app/api/process-pdfs/route.ts to accept existing course data and instruct OpenAI to: 1) Preserve existing lesson IDs and manually edited content, 2) Generate new lessons with incremental IDs, 3) Focus updates on guidance fields (objectives, tips, examples), 4) Maintain logical lesson sequence, 5) Include existing course context in prompt to ensure coherent updates. Add request parameter to differentiate between new course creation and course updates.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test AI responses maintain existing structure, verify new content integrates logically, validate lesson ID preservation and incremental assignment"
           },
           {
@@ -402,7 +402,7 @@
               "6.4"
             ],
             "details": "Add 'Update Course' button to lessons page header alongside 'Publish Course'. Implement file upload modal for additional documents. Connect to enhanced API endpoint for course updates. Display CourseUpdatePreview component for user review. Apply approved changes using merge logic while preserving localStorage data integrity. Add rollback functionality in case of errors. Show success/error notifications for update operations.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test complete update workflow from file upload to merge application, verify no data loss during updates, test rollback functionality, validate user experience flow"
           }
         ]
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-04T18:33:17.805Z",
+      "updated": "2025-10-04T18:46:11.615Z",
       "description": "Tasks for master context"
     }
   }

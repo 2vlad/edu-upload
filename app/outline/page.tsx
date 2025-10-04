@@ -7,7 +7,10 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight } from "lucide-react"
+import { CourseUpdatePreview } from "@/components/CourseUpdatePreview"
+import { mergeCourseUpdates, type CourseChanges } from "@/lib/courseUpdates"
 
 interface Lesson {
   id: string
@@ -40,7 +43,13 @@ export default function OutlinePage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [editedDescription, setEditedDescription] = useState("")
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [previewChanges, setPreviewChanges] = useState<CourseChanges | null>(null)
+  const [pendingUpdate, setPendingUpdate] = useState<CourseData | null>(null)
   const dragLessonIdRef = useRef<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -190,6 +199,78 @@ export default function OutlinePage() {
     router.push("/lessons")
   }
 
+  const handleAddFiles = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0 || !courseData) return
+
+    setIsUploading(true)
+    setShowUpdateDialog(false)
+
+    try {
+      // Create FormData with new files and existing course context
+      const formData = new FormData()
+      Array.from(files).forEach((file) => {
+        formData.append('files', file)
+      })
+
+      // Include existing course data for intelligent merging
+      formData.append('existingCourse', JSON.stringify(courseData))
+
+      // Call API to process files with course context
+      const response = await fetch('/api/process-files', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to process files')
+      }
+
+      const newCourseData = await response.json()
+
+      // Merge new data with existing course
+      const { mergedCourse, changes } = mergeCourseUpdates(courseData, newCourseData)
+
+      // Show preview
+      setPreviewChanges(changes)
+      setPendingUpdate(mergedCourse)
+      setShowPreview(true)
+    } catch (error) {
+      console.error('Error updating course:', error)
+      alert(error instanceof Error ? error.message : 'Не удалось обновить курс')
+    } finally {
+      setIsUploading(false)
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleApproveUpdate = () => {
+    if (!pendingUpdate) return
+
+    // Apply the update
+    setCourseData(pendingUpdate)
+    localStorage.setItem('courseData', JSON.stringify(pendingUpdate))
+
+    // Close preview
+    setShowPreview(false)
+    setPreviewChanges(null)
+    setPendingUpdate(null)
+  }
+
+  const handleCancelUpdate = () => {
+    setShowPreview(false)
+    setPreviewChanges(null)
+    setPendingUpdate(null)
+  }
+
   if (!courseData) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -303,13 +384,26 @@ export default function OutlinePage() {
 
           {/* Action Buttons */}
           <div className="flex gap-3 flex-wrap">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.doc,.md,.txt,.rtf,.html,.png,.jpg,.jpeg,.webp,.gif"
+              onChange={handleFileChange}
+              className="hidden"
+            />
             <Button variant="outline" className="rounded-[25px]" disabled>
               <FileText className="w-4 h-4 mr-2" />
               Редактировать источники
             </Button>
-            <Button variant="outline" className="rounded-[25px]" disabled>
+            <Button
+              variant="outline"
+              className="rounded-[25px]"
+              onClick={handleAddFiles}
+              disabled={isUploading}
+            >
               <Upload className="w-4 h-4 mr-2" />
-              Добавить файлы
+              {isUploading ? 'Загрузка...' : 'Добавить файлы'}
             </Button>
             <Button variant="outline" className="rounded-[25px]" disabled>
               <RefreshCw className="w-4 h-4 mr-2" />
@@ -368,6 +462,22 @@ export default function OutlinePage() {
           ))}
         </div>
       </div>
+
+      {/* Update Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Предпросмотр обновлений курса</DialogTitle>
+          </DialogHeader>
+          {previewChanges && (
+            <CourseUpdatePreview
+              changes={previewChanges}
+              onApprove={handleApproveUpdate}
+              onCancel={handleCancelUpdate}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

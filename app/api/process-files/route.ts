@@ -98,9 +98,20 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
+    const existingCourseJson = formData.get('existingCourse') as string | null
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Файлы не предоставлены' }, { status: 400 })
+    }
+
+    // Parse existing course if provided (for updates)
+    let existingCourse: any = null
+    if (existingCourseJson) {
+      try {
+        existingCourse = JSON.parse(existingCourseJson)
+      } catch (e) {
+        console.error('Failed to parse existing course:', e)
+      }
     }
 
     // Parse all files (documents and images)
@@ -138,10 +149,36 @@ export async function POST(request: NextRequest) {
     // Use the first chunk for course generation (or combine if needed)
     const textForGeneration = chunks[0]
 
-    // Generate structured course using OpenAI
-    const { object: courseStructure } = await generateObject({
-      model: openai('gpt-4o'),
-      prompt: `
+    // Build prompt based on whether we're updating or creating
+    let prompt = ''
+    if (existingCourse && existingCourse.lessons) {
+      // Update mode - preserve existing structure
+      const existingLessonSummary = existingCourse.lessons
+        .map((l: any, idx: number) => `${idx + 1}. ID: ${l.id}, Заголовок: "${l.title}"`)
+        .join('\n')
+
+      prompt = `
+        Обнови существующий курс "${existingCourse.title}" на основе новых документов.
+
+        СУЩЕСТВУЮЩИЕ УРОКИ (СОХРАНИ ИХ ID И СТРУКТУРУ):
+        ${existingLessonSummary}
+
+        ВАЖНЫЕ ПРАВИЛА:
+        - ОБЯЗАТЕЛЬНО сохраняй существующие ID уроков (${existingCourse.lessons.map((l: any) => l.id).join(', ')})
+        - Если добавляешь новые уроки, создавай для них новые уникальные ID
+        - Обновляй только guidance-поля (guiding_questions, expansion_tips, examples_to_add) для существующих уроков
+        - НЕ изменяй вручную отредактированное содержание (content, title, objectives)
+        - Добавляй новые уроки, если новые документы содержат новую информацию
+        - Следи за логической последовательностью уроков
+
+        Новый материал для интеграции:
+        ${textForGeneration}
+
+        Создай обновленную структуру курса на русском языке.
+      `
+    } else {
+      // Create mode - new course
+      prompt = `
         Преобразуй следующий текст из документов в структурированный образовательный курс с 3-10 уроками.
 
         Каждый урок должен:
@@ -165,7 +202,13 @@ export async function POST(request: NextRequest) {
         ${textForGeneration}
 
         Ответ должен быть на русском языке.
-      `,
+      `
+    }
+
+    // Generate structured course using OpenAI
+    const { object: courseStructure } = await generateObject({
+      model: openai('gpt-4o'),
+      prompt,
       schema: z.object({
         title: z.string().describe('Название курса на русском языке'),
         description: z.string().describe('Описание курса на русском языке'),
