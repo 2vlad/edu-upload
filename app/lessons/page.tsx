@@ -57,9 +57,7 @@ export default function LessonsPage() {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
-  const [isGuidingQuestionsOpen, setIsGuidingQuestionsOpen] = useState(false)
-  const [isExpansionTipsOpen, setIsExpansionTipsOpen] = useState(false)
-  const [isExamplesOpen, setIsExamplesOpen] = useState(false)
+  const [isGuidanceOpen, setIsGuidanceOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -539,122 +537,103 @@ export default function LessonsPage() {
 
             {/* Guidance Panel */}
             {(selectedLesson.guiding_questions || selectedLesson.expansion_tips || selectedLesson.examples_to_add) && (
-              <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <FileDown className="w-5 h-5 text-primary" />
-                  Подсказки для расширения материала
-                </h3>
+              <Collapsible open={isGuidanceOpen} onOpenChange={setIsGuidanceOpen}>
+                <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20">
+                  <CollapsibleTrigger className="w-full">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 hover:opacity-70 transition-opacity">
+                      <FileDown className="w-5 h-5 text-primary" />
+                      Подсказки для расширения материала
+                      <ChevronDown className={`w-5 h-5 ml-auto transition-transform ${isGuidanceOpen ? 'rotate-180' : ''}`} />
+                    </h3>
+                  </CollapsibleTrigger>
 
-                {/* Guiding Questions */}
-                {selectedLesson.guiding_questions && selectedLesson.guiding_questions.length > 0 && (
-                  <Collapsible
-                    open={isGuidingQuestionsOpen}
-                    onOpenChange={setIsGuidingQuestionsOpen}
-                    className="mb-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isGuidingQuestionsOpen ? 'rotate-180' : ''}`} />
-                        <h4 className="font-medium text-sm">Наводящие вопросы</h4>
-                      </CollapsibleTrigger>
-                      {isEditing && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleInsertGuidance(selectedLesson.guiding_questions!, 'Наводящие вопросы')}
-                          className="rounded-[20px] text-xs"
-                        >
-                          <FileDown className="w-3 h-3 mr-1" />
-                          Вставить в текст
-                        </Button>
-                      )}
-                    </div>
-                    <CollapsibleContent>
-                      <ul className="space-y-1 text-sm">
-                        {selectedLesson.guiding_questions.map((q, idx) => (
-                          <li key={idx} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{q}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
+                  <CollapsibleContent>
+                    {/* Guiding Questions */}
+                    {selectedLesson.guiding_questions && selectedLesson.guiding_questions.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm">Наводящие вопросы</h4>
+                          {isEditing && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInsertGuidance(selectedLesson.guiding_questions!, 'Наводящие вопросы')}
+                              className="rounded-[20px] text-xs"
+                            >
+                              <FileDown className="w-3 h-3 mr-1" />
+                              Вставить в текст
+                            </Button>
+                          )}
+                        </div>
+                        <ul className="space-y-1 text-sm">
+                          {selectedLesson.guiding_questions.map((q, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{q}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                {/* Expansion Tips */}
-                {selectedLesson.expansion_tips && selectedLesson.expansion_tips.length > 0 && (
-                  <Collapsible
-                    open={isExpansionTipsOpen}
-                    onOpenChange={setIsExpansionTipsOpen}
-                    className="mb-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpansionTipsOpen ? 'rotate-180' : ''}`} />
-                        <h4 className="font-medium text-sm">Советы по расширению</h4>
-                      </CollapsibleTrigger>
-                      {isEditing && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleInsertGuidance(selectedLesson.expansion_tips!, 'Советы по расширению')}
-                          className="rounded-[20px] text-xs"
-                        >
-                          <FileDown className="w-3 h-3 mr-1" />
-                          Вставить в текст
-                        </Button>
-                      )}
-                    </div>
-                    <CollapsibleContent>
-                      <ul className="space-y-1 text-sm">
-                        {selectedLesson.expansion_tips.map((tip, idx) => (
-                          <li key={idx} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{tip}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
+                    {/* Expansion Tips */}
+                    {selectedLesson.expansion_tips && selectedLesson.expansion_tips.length > 0 && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm">Советы по расширению</h4>
+                          {isEditing && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInsertGuidance(selectedLesson.expansion_tips!, 'Советы по расширению')}
+                              className="rounded-[20px] text-xs"
+                            >
+                              <FileDown className="w-3 h-3 mr-1" />
+                              Вставить в текст
+                            </Button>
+                          )}
+                        </div>
+                        <ul className="space-y-1 text-sm">
+                          {selectedLesson.expansion_tips.map((tip, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{tip}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
 
-                {/* Examples to Add */}
-                {selectedLesson.examples_to_add && selectedLesson.examples_to_add.length > 0 && (
-                  <Collapsible
-                    open={isExamplesOpen}
-                    onOpenChange={setIsExamplesOpen}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isExamplesOpen ? 'rotate-180' : ''}`} />
-                        <h4 className="font-medium text-sm">Идеи примеров</h4>
-                      </CollapsibleTrigger>
-                      {isEditing && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleInsertGuidance(selectedLesson.examples_to_add!, 'Идеи примеров')}
-                          className="rounded-[20px] text-xs"
-                        >
-                          <FileDown className="w-3 h-3 mr-1" />
-                          Вставить в текст
-                        </Button>
-                      )}
-                    </div>
-                    <CollapsibleContent>
-                      <ul className="space-y-1 text-sm">
-                        {selectedLesson.examples_to_add.map((example, idx) => (
-                          <li key={idx} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span>{example}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CollapsibleContent>
-                  </Collapsible>
-                )}
-              </Card>
+                    {/* Examples to Add */}
+                    {selectedLesson.examples_to_add && selectedLesson.examples_to_add.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium text-sm">Идеи примеров</h4>
+                          {isEditing && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleInsertGuidance(selectedLesson.examples_to_add!, 'Идеи примеров')}
+                              className="rounded-[20px] text-xs"
+                            >
+                              <FileDown className="w-3 h-3 mr-1" />
+                              Вставить в текст
+                            </Button>
+                          )}
+                        </div>
+                        <ul className="space-y-1 text-sm">
+                          {selectedLesson.examples_to_add.map((example, idx) => (
+                            <li key={idx} className="flex items-start">
+                              <span className="mr-2">•</span>
+                              <span>{example}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             )}
 
             {/* Content */}
