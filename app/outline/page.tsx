@@ -267,10 +267,11 @@ export default function OutlinePage() {
       } catch {}
 
       const response = await fetch('/api/process-files', { method: 'POST', body: formData })
+      const payload = await readResponse(response) // read exactly once
       if (!response.ok) {
-        await readResponse(response) // throws with readable message
+        throw new Error((payload && (payload.error || payload.message)) || 'Ошибка обработки файла')
       }
-      const newCourseData = await readResponse(response)
+      const newCourseData = payload
 
       const { mergedCourse, changes } = mergeCourseUpdates(currentCourse, newCourseData)
       currentCourse = mergedCourse

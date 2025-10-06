@@ -272,7 +272,7 @@ export async function POST(request: NextRequest) {
             objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
             guiding_questions: z
               .array(z.string())
-              .min(5)
+              .min(3)
               .max(8)
               .describe('Наводящие вопросы для расширения материала'),
             expansion_tips: z

@@ -65,23 +65,29 @@ interface CircularProgressProps {
   size?: "sm" | "md" | "lg"
   progress?: number
   label?: string
+  subtle?: boolean // lower-contrast style
 }
 
-export function CircularProgress({ 
-  className, 
-  size = "md", 
+export function CircularProgress({
+  className,
+  size = "md",
   progress = 0,
-  label 
+  label,
+  subtle = false,
 }: CircularProgressProps) {
   const sizeConfig = {
     sm: { size: 80, strokeWidth: 6, radius: 35 },
     md: { size: 120, strokeWidth: 8, radius: 52 },
-    lg: { size: 160, strokeWidth: 10, radius: 70 }
+    lg: { size: 160, strokeWidth: 10, radius: 70 },
   }
 
   const config = sizeConfig[size]
   const circumference = 2 * Math.PI * config.radius
-  const strokeDashoffset = circumference - (progress / 100) * circumference
+  const clamped = Math.max(0, Math.min(100, progress))
+  const strokeDashoffset = circumference - (clamped / 100) * circumference
+  const angle = (clamped / 100) * 2 * Math.PI - Math.PI / 2
+  const headX = config.size / 2 + Math.cos(angle) * config.radius
+  const headY = config.size / 2 + Math.sin(angle) * config.radius
 
   return (
     <div className={cn("flex flex-col items-center justify-center gap-4", className)}>
@@ -91,6 +97,12 @@ export function CircularProgress({
           width={config.size}
           height={config.size}
         >
+          <defs>
+            <linearGradient id="tm-progress-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="currentColor" stopOpacity={subtle ? 0.9 : 1} />
+              <stop offset="100%" stopColor="currentColor" stopOpacity={subtle ? 0.6 : 0.85} />
+            </linearGradient>
+          </defs>
           {/* Background circle */}
           <circle
             cx={config.size / 2}
@@ -99,7 +111,7 @@ export function CircularProgress({
             stroke="currentColor"
             strokeWidth={config.strokeWidth}
             fill="none"
-            className="text-muted/20"
+            className={cn(subtle ? "text-muted/20" : "text-muted/25")}
           />
           
           {/* Progress circle */}
@@ -107,36 +119,28 @@ export function CircularProgress({
             cx={config.size / 2}
             cy={config.size / 2}
             r={config.radius}
-            stroke="currentColor"
+            stroke="url(#tm-progress-grad)"
             strokeWidth={config.strokeWidth}
             fill="none"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
-            className="text-primary transition-all duration-500 ease-out"
+            className="text-primary transition-[stroke-dashoffset] duration-600 ease-[cubic-bezier(.22,1,.36,1)]"
             strokeLinecap="round"
           />
-          
-          {/* Animated dots */}
-          {[0, 1, 2].map((i) => (
-            <circle
-              key={i}
-              cx={config.size / 2}
-              cy={config.size / 2 - config.radius}
-              r={config.strokeWidth / 2}
-              fill="currentColor"
-              className="text-primary"
-              style={{
-                transformOrigin: `${config.size / 2}px ${config.size / 2}px`,
-                animation: `orbit 3s cubic-bezier(0.4, 0, 0.2, 1) ${i * 1}s infinite`
-              }}
-            />
-          ))}
+          {/* Head dot (subtle, follows the arc) */}
+          <circle
+            cx={headX}
+            cy={headY}
+            r={Math.max(2, config.strokeWidth * 0.45)}
+            fill="currentColor"
+            className={cn("text-primary transition-all duration-600 ease-[cubic-bezier(.22,1,.36,1)]", subtle && "opacity-70")}
+          />
         </svg>
         
         {/* Center content */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl font-semibold">
-            {Math.round(progress)}%
+          <span className="text-2xl font-semibold tabular-nums">
+            {Math.round(clamped)}%
           </span>
         </div>
       </div>

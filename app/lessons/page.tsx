@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   CheckCircle,
   ArrowLeft,
@@ -18,7 +19,8 @@ import {
   RefreshCw,
   FileDown,
   Image as ImageIcon,
-  Upload
+  Upload,
+  ChevronDown
 } from "lucide-react"
 import { markAsEdited } from "@/lib/types/course"
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient"
@@ -55,6 +57,9 @@ export default function LessonsPage() {
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
+  const [isGuidingQuestionsOpen, setIsGuidingQuestionsOpen] = useState(false)
+  const [isExpansionTipsOpen, setIsExpansionTipsOpen] = useState(false)
+  const [isExamplesOpen, setIsExamplesOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
