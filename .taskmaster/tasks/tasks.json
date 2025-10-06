@@ -417,7 +417,7 @@
         "dependencies": [
           6
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -425,7 +425,7 @@
             "description": "Replace horizontal carousel with left sidebar displaying table of contents with clickable lesson navigation",
             "dependencies": [],
             "details": "Create a new sidebar component using the existing SidebarProvider from @/components/ui/sidebar. Replace the horizontal carousel (scrollContainerRef, scroll buttons) with a vertical TOC sidebar showing lesson titles as clickable navigation items. Implement active lesson highlighting and smooth selection transition. Use existing Card styling patterns and maintain drag-and-drop reordering functionality in the sidebar. Update layout to be flex with sidebar on left and content area on right.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test TOC navigation between lessons, verify active lesson highlighting, test drag-and-drop reordering in sidebar format"
           },
           {
@@ -436,7 +436,7 @@
               "7.1"
             ],
             "details": "Create guidance panel component that displays the new lesson fields (guiding_questions, expansion_tips, examples_to_add) from the enhanced Lesson interface. Position the guidance panel in the lesson editor area, possibly as a collapsible section or secondary panel. Use existing UI components like Card, proper typography, and list formatting. Display arrays as bulleted lists with clear section headers. Ensure responsive design that works with the new sidebar layout.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test guidance content display for all field types, verify responsive layout with sidebar, test collapsible functionality if implemented"
           },
           {
@@ -447,7 +447,7 @@
               "7.2"
             ],
             "details": "Add two action buttons to each guidance section: 'Insert as outline' (inserts selected guidance items as markdown outline into lesson content) and 'Regenerate' (calls API to regenerate specific guidance section). Use existing Button component with appropriate styling (rounded-[30px] for primary actions). Implement modal confirmation for regenerate actions. Create utility functions to format guidance items as markdown outline. Handle button states (loading, disabled) during API calls.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test outline insertion into markdown content, verify regenerate API calls, test button states and loading indicators"
           },
           {
@@ -458,7 +458,7 @@
               "7.2"
             ],
             "details": "Create image upload component that supports drag-and-drop from local files. Implement file handling for image types (PNG, JPG, WebP). Add upload functionality to Supabase Storage (when available) or temporary local storage. Create markdown insertion functionality that adds image references at cursor position in the Textarea editor. Add image preview and management UI. Use existing drag-and-drop patterns from the current lesson reordering implementation as reference.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test drag-and-drop image upload, verify markdown insertion at correct cursor position, test image preview functionality"
           },
           {
@@ -472,7 +472,7 @@
               "7.4"
             ],
             "details": "Add toggle component (using existing Toggle from @/components/ui/toggle) in the header section to switch between 'Outline' (new vertical TOC) and 'Cards' (original horizontal carousel) view modes. Preserve view preference in localStorage. Conditionally render either the new sidebar layout or original carousel based on toggle state. Ensure all functionality (editing, drag-and-drop, lesson navigation) works in both modes. Update lesson editing modal to support new guidance fields regardless of view mode.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test toggle between view modes, verify localStorage persistence of preference, test all features work in both modes"
           }
         ]
@@ -487,7 +487,7 @@
         "dependencies": [
           7
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-04T18:46:11.615Z",
+      "updated": "2025-10-06T18:12:37.556Z",
       "description": "Tasks for master context"
     }
   }

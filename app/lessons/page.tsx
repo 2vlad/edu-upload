@@ -24,6 +24,8 @@ import {
 } from "lucide-react"
 import { markAsEdited } from "@/lib/types/course"
 import { supabase } from "@/lib/supabaseClient"
+import { publishCourse } from "@/app/actions/publish-course"
+import { useToast } from "@/hooks/use-toast"
 
 interface Lesson {
   id: string
@@ -55,9 +57,11 @@ export default function LessonsPage() {
   const [viewMode, setViewMode] = useState<'outline' | 'cards'>('outline')
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const { toast } = useToast()
 
   useEffect(() => {
     const stored = localStorage.getItem("courseData")
@@ -83,10 +87,60 @@ export default function LessonsPage() {
     }
   }, [selectedLessonIndex, courseData])
 
-  const handlePublish = () => {
-    if (courseData) {
-      localStorage.setItem("publishedCourse", JSON.stringify(courseData))
-      router.push("/course")
+  const handlePublish = async () => {
+    if (!courseData) return
+
+    // Save any pending edits first
+    if (isEditing) {
+      handleSave()
+    }
+
+    setIsPublishing(true)
+
+    try {
+      // Get existing slug if available
+      const existingSlug = localStorage.getItem("publishedCourseSlug") || undefined
+
+      // Call server action
+      const result = await publishCourse({
+        title: courseData.title,
+        description: courseData.description,
+        lessons: courseData.lessons,
+        existingSlug,
+      })
+
+      if (result.success) {
+        // Save slug for future updates
+        if (result.slug) {
+          localStorage.setItem("publishedCourseSlug", result.slug)
+        }
+
+        // Also keep localStorage backup for backward compatibility
+        localStorage.setItem("publishedCourse", JSON.stringify(courseData))
+
+        toast({
+          title: "Курс опубликован!",
+          description: `Курс "${courseData.title}" успешно опубликован.`,
+        })
+
+        // Navigate to course view
+        router.push(`/course?slug=${result.slug}`)
+      } else {
+        toast({
+          title: "Ошибка публикации",
+          description: result.error || "Не удалось опубликовать курс",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Unexpected error:", error)
+      toast({
+        title: "Ошибка",
+        description: "Произошла неожиданная ошибка при публикации",
+        variant: "destructive",
+      })
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -349,10 +403,11 @@ export default function LessonsPage() {
 
               <Button
                 onClick={handlePublish}
+                disabled={isPublishing}
                 className="rounded-[30px] bg-primary hover:bg-primary/90"
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Опубликовать курс
+                {isPublishing ? "Публикация..." : "Опубликовать курс"}
               </Button>
             </div>
           </div>
