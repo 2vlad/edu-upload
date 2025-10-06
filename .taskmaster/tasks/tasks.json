@@ -556,7 +556,7 @@
         "dependencies": [
           8
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -564,7 +564,7 @@
             "description": "Create app/courses/page.tsx with header navigation, tabs for Drafts/Published courses, and basic page structure",
             "dependencies": [],
             "details": "Create the main courses page with header containing Back to Upload button, page title 'My Courses', and tab navigation between 'Drafts' and 'Published' courses. Use existing UI components (Card, Button, Tabs) and follow design patterns from existing pages. Include responsive layout with max-width container and proper spacing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test page loads correctly, tab navigation works, responsive layout on different screen sizes"
           },
           {
@@ -575,7 +575,7 @@
               "9.1"
             ],
             "details": "Read course data from localStorage (courseData and publishedCourse keys), filter courses by status based on active tab. Display course cards showing title, description, creation date, lesson count, and publish status. Use existing Card component styling with proper truncation for long text and consistent spacing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test with sample course data, verify filtering works correctly, test with empty states"
           },
           {
@@ -586,7 +586,7 @@
               "9.2"
             ],
             "details": "Add action buttons to each course card: Open (navigate to /lessons), Publish/Unpublish (toggle status and move between tabs), Delete (with confirmation dialog). Use existing Dialog components, Button styling with rounded-[30px] class, and proper state management for confirmation flows. Handle localStorage updates for course status changes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test all actions work correctly, confirmation dialogs appear, localStorage updates properly, navigation works"
           },
           {
@@ -597,7 +597,7 @@
               "9.2"
             ],
             "details": "Create dynamic route page that accepts course slug parameter, fetch course data from localStorage using publishedCourse key or course ID. Display course in read-only format similar to existing /course page but without edit capabilities. Include course metadata (created date, lesson count) and navigation between lessons. Handle course not found states gracefully.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test with valid course slugs, handle invalid slugs gracefully, verify read-only functionality, test lesson navigation"
           },
           {
@@ -609,7 +609,7 @@
               "9.4"
             ],
             "details": "Add course metadata display including created/updated timestamps, lesson count, and status badges. Implement filtering options for course status (all, draft, published) with clear visual indicators. Format dates using appropriate date formatting, add loading states for data fetching, and ensure proper accessibility with screen reader support.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test metadata displays correctly, filtering works as expected, verify accessibility features, test with various course states"
           }
         ]
@@ -624,7 +624,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-06T18:19:48.871Z",
+      "updated": "2025-10-06T18:32:04.854Z",
       "description": "Tasks for master context"
     }
   }

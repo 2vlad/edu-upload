@@ -6,8 +6,43 @@ import { useState, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, ArrowRight, Sparkles } from "lucide-react"
+import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
+
+// Supported file types
+const SUPPORTED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // DOCX
+  'text/markdown',
+  'text/plain',
+  'application/rtf',
+  'text/html',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]
+
+const SUPPORTED_EXTENSIONS = '.pdf,.docx,.doc,.md,.txt,.rtf,.html,.png,.jpg,.jpeg,.webp,.gif'
+
+// Get icon based on file type
+const getFileIcon = (file: File) => {
+  if (file.type.startsWith('image/')) {
+    return <ImageIcon className="w-5 h-5 text-primary" />
+  }
+  if (file.type === 'text/html' || file.type === 'text/markdown') {
+    return <Code className="w-5 h-5 text-primary" />
+  }
+  if (file.type === 'application/pdf') {
+    return <FileText className="w-5 h-5 text-primary" />
+  }
+  return <File className="w-5 h-5 text-primary" />
+}
+
+// Validate file type
+const isSupportedFile = (file: File): boolean => {
+  return SUPPORTED_MIME_TYPES.includes(file.type)
+}
 
 export default function HomePage() {
   const [files, setFiles] = useState<File[]>([])
@@ -32,13 +67,19 @@ export default function HomePage() {
     e.preventDefault()
     setIsDragOver(false)
 
-    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) => file.type === "application/pdf")
+    const droppedFiles = Array.from(e.dataTransfer.files).filter(isSupportedFile)
+    if (droppedFiles.length < e.dataTransfer.files.length) {
+      setError('Некоторые файлы не поддерживаются и были пропущены')
+    }
     setFiles((prev) => [...prev, ...droppedFiles])
   }, [])
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files).filter((file) => file.type === "application/pdf")
+      const selectedFiles = Array.from(e.target.files).filter(isSupportedFile)
+      if (selectedFiles.length < e.target.files.length) {
+        setError('Некоторые файлы не поддерживаются и были пропущены')
+      }
       setFiles((prev) => [...prev, ...selectedFiles])
     }
   }, [])
@@ -64,7 +105,7 @@ export default function HomePage() {
   useEffect(() => {
     if (isProcessing) {
       if (processingProgress < 20) {
-        setProcessingMessage("Чтение PDF-файлов...")
+        setProcessingMessage("Обработка файлов...")
       } else if (processingProgress < 50) {
         setProcessingMessage("Анализ содержимого...")
       } else if (processingProgress < 75) {
@@ -89,7 +130,7 @@ export default function HomePage() {
         formData.append("files", file)
       })
 
-      const response = await fetch("/api/process-pdfs", {
+      const response = await fetch("/api/process-files", {
         method: "POST",
         body: formData,
       })
@@ -97,7 +138,7 @@ export default function HomePage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Не удалось обработать PDF-файлы")
+        throw new Error(data.error || "Не удалось обработать файлы")
       }
 
       // Set progress to 100% when done
@@ -162,9 +203,9 @@ export default function HomePage() {
       
       <div className="max-w-4xl mx-auto w-full">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">Создайте курс из PDF-файлов</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-4 text-balance">Создайте курс из ваших материалов</h1>
           <p className="text-lg text-muted-foreground text-pretty">
-            Загрузите PDF-материалы, и ИИ превратит их в структурированные увлекательные уроки
+            Загрузите документы и изображения, и ИИ превратит их в структурированные увлекательные уроки
           </p>
         </div>
 
@@ -178,10 +219,12 @@ export default function HomePage() {
             onDrop={handleDrop}
           >
             <Upload className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">Перетащите PDF-файлы сюда</h3>
-            <p className="text-muted-foreground mb-6">или нажмите, чтобы выбрать файлы</p>
+            <h3 className="text-xl font-semibold mb-2">Перетащите файлы сюда</h3>
+            <p className="text-muted-foreground mb-6">
+              Поддерживаются PDF, DOCX, MD, TXT, RTF, HTML и изображения
+            </p>
 
-            <input type="file" multiple accept=".pdf" onChange={handleFileSelect} className="hidden" id="file-upload" />
+            <input type="file" multiple accept={SUPPORTED_EXTENSIONS} onChange={handleFileSelect} className="hidden" id="file-upload" />
             <label htmlFor="file-upload">
               <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
                 <span>Выбрать файлы</span>
@@ -203,9 +246,13 @@ export default function HomePage() {
               {files.map((file, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-[30px]">
                   <div className="flex items-center gap-3">
-                    <FileText className="w-5 h-5 text-primary" />
-                    <span className="font-medium">{file.name}</span>
-                    <span className="text-sm text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                    {getFileIcon(file)}
+                    <div className="flex flex-col">
+                      <span className="font-medium">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {file.type || 'неизвестный тип'} • {(file.size / 1024 / 1024).toFixed(1)} MB
+                      </span>
+                    </div>
                   </div>
                   <Button
                     variant="ghost"
