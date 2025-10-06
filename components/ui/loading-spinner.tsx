@@ -93,7 +93,7 @@ export function CircularProgress({
     <div className={cn("flex flex-col items-center justify-center gap-4", className)}>
       <div className="relative">
         <svg
-          className="transform -rotate-90"
+          className="transform -rotate-90 text-primary"
           width={config.size}
           height={config.size}
         >
