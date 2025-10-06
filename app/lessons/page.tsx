@@ -18,8 +18,6 @@ import {
   RefreshCw,
   FileDown,
   Image as ImageIcon,
-  List,
-  LayoutGrid,
   Upload
 } from "lucide-react"
 import { markAsEdited } from "@/lib/types/course"
@@ -54,7 +52,6 @@ export default function LessonsPage() {
   const [editedTitle, setEditedTitle] = useState("")
   const [editedContent, setEditedContent] = useState("")
   const [editedObjectives, setEditedObjectives] = useState<string[]>([])
-  const [viewMode, setViewMode] = useState<'outline' | 'cards'>('outline')
   const [isDraggingOver, setIsDraggingOver] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
@@ -69,12 +66,6 @@ export default function LessonsPage() {
       setCourseData(JSON.parse(stored))
     } else {
       router.push("/")
-    }
-
-    // Load view preference
-    const savedView = localStorage.getItem("lessonsViewMode") as 'outline' | 'cards' | null
-    if (savedView) {
-      setViewMode(savedView)
     }
   }, [router])
 
@@ -218,11 +209,6 @@ export default function LessonsPage() {
       const newPosition = start + outline.length
       textarea.setSelectionRange(newPosition, newPosition)
     }, 0)
-  }
-
-  const handleViewModeChange = (mode: 'outline' | 'cards') => {
-    setViewMode(mode)
-    localStorage.setItem("lessonsViewMode", mode)
   }
 
   const uploadImageToSupabase = async (file: File): Promise<string | null> => {
@@ -385,28 +371,6 @@ export default function LessonsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-2 border rounded-[30px] p-1">
-                <Button
-                  variant={viewMode === 'outline' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleViewModeChange('outline')}
-                  className="rounded-[25px]"
-                >
-                  <List className="w-4 h-4 mr-2" />
-                  Список
-                </Button>
-                <Button
-                  variant={viewMode === 'cards' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => handleViewModeChange('cards')}
-                  className="rounded-[25px]"
-                >
-                  <LayoutGrid className="w-4 h-4 mr-2" />
-                  Карточки
-                </Button>
-              </div>
-
               <Button
                 onClick={handlePublish}
                 disabled={isPublishing}

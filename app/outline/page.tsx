@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight } from "lucide-react"
+import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight, Plus } from "lucide-react"
 import { CourseUpdatePreview } from "@/components/CourseUpdatePreview"
 import { mergeCourseUpdates, type CourseChanges } from "@/lib/courseUpdates"
 
@@ -48,6 +48,9 @@ export default function OutlinePage() {
   const [showPreview, setShowPreview] = useState(false)
   const [previewChanges, setPreviewChanges] = useState<CourseChanges | null>(null)
   const [pendingUpdate, setPendingUpdate] = useState<CourseData | null>(null)
+  const [showAddLessonDialog, setShowAddLessonDialog] = useState(false)
+  const [newLessonTitle, setNewLessonTitle] = useState("")
+  const [newLessonContent, setNewLessonContent] = useState("")
   const dragLessonIdRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -199,6 +202,34 @@ export default function OutlinePage() {
     router.push("/lessons")
   }
 
+  const handleAddManualLesson = () => {
+    if (!courseData || !newLessonTitle.trim()) return
+
+    const newLesson: Lesson = {
+      id: `lesson-${Date.now()}`,
+      title: newLessonTitle.trim(),
+      content: newLessonContent.trim() || "Начните писать содержание урока...",
+      objectives: ["Новая цель обучения"],
+      logline: "",
+      guiding_questions: [],
+      expansion_tips: [],
+      examples_to_add: [],
+    }
+
+    const updatedCourse = {
+      ...courseData,
+      lessons: [...courseData.lessons, newLesson],
+    }
+
+    setCourseData(updatedCourse)
+    localStorage.setItem("courseData", JSON.stringify(updatedCourse))
+
+    // Reset form
+    setNewLessonTitle("")
+    setNewLessonContent("")
+    setShowAddLessonDialog(false)
+  }
+
   const handleAddFiles = () => {
     fileInputRef.current?.click()
   }
@@ -219,6 +250,14 @@ export default function OutlinePage() {
 
       // Include existing course data for intelligent merging
       formData.append('existingCourse', JSON.stringify(courseData))
+
+      // Include preferred model if set
+      try {
+        const preferred = localStorage.getItem('preferredModel')
+        if (preferred) {
+          formData.append('modelChoice', preferred)
+        }
+      } catch {}
 
       // Call API to process files with course context
       const response = await fetch('/api/process-files', {
@@ -405,6 +444,14 @@ export default function OutlinePage() {
               <Upload className="w-4 h-4 mr-2" />
               {isUploading ? 'Загрузка...' : 'Добавить файлы'}
             </Button>
+            <Button
+              variant="outline"
+              className="rounded-[25px]"
+              onClick={() => setShowAddLessonDialog(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить урок
+            </Button>
             <Button variant="outline" className="rounded-[25px]" disabled>
               <RefreshCw className="w-4 h-4 mr-2" />
               Обновить план
@@ -476,6 +523,61 @@ export default function OutlinePage() {
               onCancel={handleCancelUpdate}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Lesson Dialog */}
+      <Dialog open={showAddLessonDialog} onOpenChange={setShowAddLessonDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Добавить новый урок</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Название урока <span className="text-red-500">*</span>
+              </label>
+              <Input
+                value={newLessonTitle}
+                onChange={(e) => setNewLessonTitle(e.target.value)}
+                placeholder="Введите название урока"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Содержание урока (необязательно)
+              </label>
+              <Textarea
+                value={newLessonContent}
+                onChange={(e) => setNewLessonContent(e.target.value)}
+                placeholder="Начните писать содержание урока..."
+                className="min-h-[120px]"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddLessonDialog(false)
+                  setNewLessonTitle("")
+                  setNewLessonContent("")
+                }}
+                className="rounded-[25px]"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Отмена
+              </Button>
+              <Button
+                onClick={handleAddManualLesson}
+                disabled={!newLessonTitle.trim()}
+                className="rounded-[30px]"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Добавить урок
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
