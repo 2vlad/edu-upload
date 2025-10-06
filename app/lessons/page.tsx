@@ -1,26 +1,42 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import { ChevronLeft, ChevronRight, CheckCircle, ArrowLeft, Edit2, Save, X } from "lucide-react"
+  CheckCircle,
+  ArrowLeft,
+  Edit2,
+  Save,
+  X,
+  Plus,
+  RefreshCw,
+  FileDown,
+  Image as ImageIcon,
+  List,
+  LayoutGrid,
+  Upload
+} from "lucide-react"
+import { markAsEdited } from "@/lib/types/course"
+import { supabase } from "@/lib/supabaseClient"
 
 interface Lesson {
   id: string
   title: string
   content: string
   objectives: string[]
+  logline?: string
+  guiding_questions?: string[]
+  expansion_tips?: string[]
+  examples_to_add?: string[]
+  contentEdited?: boolean
+  titleEdited?: boolean
+  objectivesEdited?: boolean
 }
 
 interface CourseData {
@@ -31,15 +47,16 @@ interface CourseData {
 
 export default function LessonsPage() {
   const [courseData, setCourseData] = useState<CourseData | null>(null)
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(false)
-  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null)
+  const [selectedLessonIndex, setSelectedLessonIndex] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editedTitle, setEditedTitle] = useState("")
   const [editedContent, setEditedContent] = useState("")
   const [editedObjectives, setEditedObjectives] = useState<string[]>([])
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const dragLessonIdRef = useRef<string | null>(null)
+  const [viewMode, setViewMode] = useState<'outline' | 'cards'>('outline')
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -49,39 +66,22 @@ export default function LessonsPage() {
     } else {
       router.push("/")
     }
+
+    // Load view preference
+    const savedView = localStorage.getItem("lessonsViewMode") as 'outline' | 'cards' | null
+    if (savedView) {
+      setViewMode(savedView)
+    }
   }, [router])
 
   useEffect(() => {
-    const checkScroll = () => {
-      if (scrollContainerRef.current) {
-        const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
-        setCanScrollLeft(scrollLeft > 0)
-        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
-      }
+    if (courseData && courseData.lessons[selectedLessonIndex]) {
+      const lesson = courseData.lessons[selectedLessonIndex]
+      setEditedTitle(lesson.title)
+      setEditedContent(lesson.content)
+      setEditedObjectives([...lesson.objectives])
     }
-
-    checkScroll()
-    const container = scrollContainerRef.current
-    container?.addEventListener("scroll", checkScroll)
-    window.addEventListener("resize", checkScroll)
-
-    return () => {
-      container?.removeEventListener("scroll", checkScroll)
-      window.removeEventListener("resize", checkScroll)
-    }
-  }, [courseData])
-
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -340, behavior: "smooth" })
-    }
-  }
-
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 340, behavior: "smooth" })
-    }
-  }
+  }, [selectedLessonIndex, courseData])
 
   const handlePublish = () => {
     if (courseData) {
@@ -90,27 +90,31 @@ export default function LessonsPage() {
     }
   }
 
-  const handleCardClick = (lesson: Lesson) => {
-    setSelectedLesson(lesson)
-    setEditedTitle(lesson.title)
-    setEditedContent(lesson.content)
-    setEditedObjectives([...lesson.objectives])
-    setIsEditing(false)
-  }
-
   const handleSave = () => {
-    if (!selectedLesson || !courseData) return
+    if (!courseData) return
 
-    const updatedLessons = courseData.lessons.map((lesson) =>
-      lesson.id === selectedLesson.id
-        ? {
-            ...lesson,
-            title: editedTitle,
-            content: editedContent,
-            objectives: editedObjectives,
-          }
-        : lesson
-    )
+    const selectedLesson = courseData.lessons[selectedLessonIndex]
+
+    // Track what was edited
+    let updatedLesson = { ...selectedLesson }
+
+    if (editedTitle !== selectedLesson.title) {
+      updatedLesson = markAsEdited(updatedLesson, 'title')
+      updatedLesson.title = editedTitle
+    }
+
+    if (editedContent !== selectedLesson.content) {
+      updatedLesson = markAsEdited(updatedLesson, 'content')
+      updatedLesson.content = editedContent
+    }
+
+    if (JSON.stringify(editedObjectives) !== JSON.stringify(selectedLesson.objectives)) {
+      updatedLesson = markAsEdited(updatedLesson, 'objectives')
+      updatedLesson.objectives = editedObjectives
+    }
+
+    const updatedLessons = [...courseData.lessons]
+    updatedLessons[selectedLessonIndex] = updatedLesson
 
     const updatedCourse = {
       ...courseData,
@@ -119,12 +123,6 @@ export default function LessonsPage() {
 
     setCourseData(updatedCourse)
     localStorage.setItem("courseData", JSON.stringify(updatedCourse))
-    
-    // Update selected lesson with new data
-    const updatedLesson = updatedLessons.find(l => l.id === selectedLesson.id)
-    if (updatedLesson) {
-      setSelectedLesson(updatedLesson)
-    }
     setIsEditing(false)
   }
 
@@ -142,65 +140,153 @@ export default function LessonsPage() {
     setEditedObjectives(updated)
   }
 
-  const reorderLessons = useCallback((lessons: Lesson[], sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return lessons
+  const handleInsertGuidance = (items: string[], title: string) => {
+    if (!textareaRef.current) return
 
-    const sourceIndex = lessons.findIndex((lesson) => lesson.id === sourceId)
-    const targetIndex = lessons.findIndex((lesson) => lesson.id === targetId)
+    const textarea = textareaRef.current
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const currentContent = editedContent
 
-    if (sourceIndex === -1 || targetIndex === -1) return lessons
+    // Format as markdown outline
+    const outline = `\n\n## ${title}\n\n${items.map(item => `- ${item}`).join('\n')}\n\n`
 
-    const updated = [...lessons]
-    const [movedLesson] = updated.splice(sourceIndex, 1)
-    updated.splice(targetIndex, 0, movedLesson)
+    const newContent =
+      currentContent.substring(0, start) +
+      outline +
+      currentContent.substring(end)
 
-    return updated
-  }, [])
+    setEditedContent(newContent)
 
-  const persistLessons = useCallback((lessons: Lesson[]) => {
-    setCourseData((prev) => {
-      if (!prev) return prev
-      const updatedCourse = { ...prev, lessons }
-      localStorage.setItem("courseData", JSON.stringify(updatedCourse))
+    // Focus textarea and set cursor position after inserted text
+    setTimeout(() => {
+      textarea.focus()
+      const newPosition = start + outline.length
+      textarea.setSelectionRange(newPosition, newPosition)
+    }, 0)
+  }
 
-      if (selectedLesson) {
-        const latestSelection = lessons.find((lesson) => lesson.id === selectedLesson.id)
-        if (latestSelection) {
-          setSelectedLesson(latestSelection)
-        }
+  const handleViewModeChange = (mode: 'outline' | 'cards') => {
+    setViewMode(mode)
+    localStorage.setItem("lessonsViewMode", mode)
+  }
+
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      setIsUploadingImage(true)
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+      const filePath = `lesson-images/${fileName}`
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('course-assets')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) {
+        console.error('Upload error:', error)
+        alert('Не удалось загрузить изображение: ' + error.message)
+        return null
       }
 
-      return updatedCourse
-    })
-  }, [selectedLesson])
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('course-assets')
+        .getPublicUrl(filePath)
 
-  const handleDragStart = (event: React.DragEvent<HTMLDivElement>, lessonId: string) => {
-    dragLessonIdRef.current = lessonId
-    event.dataTransfer.effectAllowed = "move"
+      return urlData.publicUrl
+    } catch (error) {
+      console.error('Unexpected error:', error)
+      alert('Не удалось загрузить изображение')
+      return null
+    } finally {
+      setIsUploadingImage(false)
+    }
   }
 
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>, lessonId: string) => {
-    if (!dragLessonIdRef.current || dragLessonIdRef.current === lessonId) return
-    event.preventDefault()
-    event.dataTransfer.dropEffect = "move"
+  const insertImageMarkdown = (imageUrl: string, altText: string = 'Изображение') => {
+    if (!textareaRef.current) return
+
+    const textarea = textareaRef.current
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const currentContent = editedContent
+
+    // Create markdown image syntax
+    const imageMarkdown = `\n\n![${altText}](${imageUrl})\n\n`
+
+    const newContent =
+      currentContent.substring(0, start) +
+      imageMarkdown +
+      currentContent.substring(end)
+
+    setEditedContent(newContent)
+
+    // Focus textarea and set cursor position after inserted image
+    setTimeout(() => {
+      textarea.focus()
+      const newPosition = start + imageMarkdown.length
+      textarea.setSelectionRange(newPosition, newPosition)
+    }, 0)
   }
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>, targetId: string) => {
-    event.preventDefault()
+  const handleImageDrop = async (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
 
-    const sourceId = dragLessonIdRef.current
-    if (!sourceId || !courseData) return
+    const files = Array.from(e.dataTransfer.files).filter(file =>
+      file.type.startsWith('image/')
+    )
 
-    const updatedLessons = reorderLessons(courseData.lessons, sourceId, targetId)
+    if (files.length === 0) {
+      return
+    }
 
-    if (updatedLessons === courseData.lessons) return
-
-    persistLessons(updatedLessons)
-    dragLessonIdRef.current = null
+    // Upload each image
+    for (const file of files) {
+      const imageUrl = await uploadImageToSupabase(file)
+      if (imageUrl) {
+        insertImageMarkdown(imageUrl, file.name.replace(/\.[^/.]+$/, ''))
+      }
+    }
   }
 
-  const handleDragEnd = () => {
-    dragLessonIdRef.current = null
+  const handleImageDragOver = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(true)
+  }
+
+  const handleImageDragLeave = (e: React.DragEvent<HTMLTextAreaElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingOver(false)
+  }
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(file =>
+      file.type.startsWith('image/')
+    )
+
+    if (files.length === 0) return
+
+    for (const file of files) {
+      const imageUrl = await uploadImageToSupabase(file)
+      if (imageUrl) {
+        insertImageMarkdown(imageUrl, file.name.replace(/\.[^/.]+$/, ''))
+      }
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   if (!courseData) {
@@ -213,17 +299,22 @@ export default function LessonsPage() {
     )
   }
 
+  const selectedLesson = courseData.lessons[selectedLessonIndex]
+
+  // If cards view mode is selected, we could render the old carousel here
+  // For now, we'll just show the outline view
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="border-b bg-card">
-        <div className="max-w-[1200px] mx-auto px-6 py-4">
+        <div className="max-w-[1400px] mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => router.push("/")} 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => router.push("/outline")}
                 className="rounded-[30px]"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -233,160 +324,147 @@ export default function LessonsPage() {
                 <p className="text-sm text-muted-foreground mt-1">{courseData.description}</p>
               </div>
             </div>
-            <Button 
-              onClick={handlePublish} 
-              className="rounded-[30px] bg-primary hover:bg-primary/90"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Опубликовать курс
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Lessons Carousel - Full Width */}
-      <div className="flex-1 flex items-center py-12">
-        <div className="relative w-full">
-          {/* Navigation Arrows */}
-          {canScrollLeft && (
-            <button
-              onClick={scrollLeft}
-              className="absolute left-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
-              aria-label="Предыдущий урок"
-            >
-              <ChevronLeft className="w-5 h-5 text-muted-foreground" />
-            </button>
-          )}
-          
-          {canScrollRight && (
-            <button
-              onClick={scrollRight}
-              className="absolute right-6 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-card border shadow-sm hover:shadow-md transition-shadow"
-              aria-label="Следующий урок"
-            >
-              <ChevronRight className="w-5 h-5 text-muted-foreground" />
-            </button>
-          )}
-
-          {/* Scrollable Container - Full Width */}
-          <div 
-            ref={scrollContainerRef}
-            className="overflow-x-auto scrollbar-hide px-6 pb-4"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-          >
-            <style jsx>{`
-              div::-webkit-scrollbar {
-                display: none;
-              }
-            `}</style>
-            <div className="flex gap-4" style={{ width: "max-content" }}>
-              {courseData.lessons.map((lesson, index) => (
-                <Card 
-                  key={lesson.id} 
-                  draggable
-                  onDragStart={(event) => handleDragStart(event, lesson.id)}
-                  onDragOver={(event) => handleDragOver(event, lesson.id)}
-                  onDrop={(event) => handleDrop(event, lesson.id)}
-                  onDragEnd={handleDragEnd}
-                  className="w-[320px] h-[420px] p-6 flex flex-col hover:shadow-lg transition-shadow cursor-pointer"
-                  style={{
-                    backgroundColor: index === 0 ? "oklch(0.94 0 0)" : "oklch(1 0 0)",
-                  }}
-                  onClick={() => handleCardClick(lesson)}
+            <div className="flex items-center gap-3">
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2 border rounded-[30px] p-1">
+                <Button
+                  variant={viewMode === 'outline' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleViewModeChange('outline')}
+                  className="rounded-[25px]"
                 >
-                  <div className="flex-1 flex flex-col">
-                    <h3 className="text-lg font-bold mb-3 line-clamp-2">
-                      {lesson.title}
-                    </h3>
-                    
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Цели обучения:</p>
-                      <ul className="space-y-1">
-                        {lesson.objectives.slice(0, 3).map((objective, idx) => (
-                          <li key={idx} className="text-sm text-muted-foreground flex items-start">
-                            <span className="mr-2">•</span>
-                            <span className="line-clamp-2">{objective}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                  <List className="w-4 h-4 mr-2" />
+                  Список
+                </Button>
+                <Button
+                  variant={viewMode === 'cards' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => handleViewModeChange('cards')}
+                  className="rounded-[25px]"
+                >
+                  <LayoutGrid className="w-4 h-4 mr-2" />
+                  Карточки
+                </Button>
+              </div>
 
-                    <div className="mt-auto">
-                      <p className="text-sm text-muted-foreground line-clamp-4 mb-4">
-                        {lesson.content}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+              <Button
+                onClick={handlePublish}
+                className="rounded-[30px] bg-primary hover:bg-primary/90"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Опубликовать курс
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Lesson Edit Dialog */}
-      <Dialog open={!!selectedLesson} onOpenChange={(open) => !open && setSelectedLesson(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              {isEditing ? (
-                <Input
-                  value={editedTitle}
-                  onChange={(e) => setEditedTitle(e.target.value)}
-                  className="text-2xl font-bold border-0 p-0 focus:ring-0"
-                  placeholder="Название урока"
-                />
-              ) : (
-                <span className="text-2xl">{selectedLesson?.title}</span>
-              )}
-              <div className="flex gap-2">
-                {!isEditing ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                    className="rounded-[30px]"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Редактировать
-                  </Button>
+      {/* Main Content - Sidebar + Editor */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - TOC */}
+        <div className="w-80 border-r bg-card overflow-y-auto">
+          <div className="p-4">
+            <h3 className="text-sm font-semibold text-muted-foreground mb-3 px-2">
+              УРОКИ ({courseData.lessons.length})
+            </h3>
+            <div className="space-y-2">
+              {courseData.lessons.map((lesson, index) => (
+                <button
+                  key={lesson.id}
+                  onClick={() => setSelectedLessonIndex(index)}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    selectedLessonIndex === index
+                      ? 'bg-primary text-primary-foreground'
+                      : 'hover:bg-accent'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      selectedLessonIndex === index
+                        ? 'bg-primary-foreground text-primary'
+                        : 'bg-primary/10 text-primary'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium line-clamp-2 text-sm">
+                        {lesson.title}
+                      </p>
+                      {lesson.contentEdited && (
+                        <Badge variant="secondary" className="mt-1 text-xs">
+                          Редактировано
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Content Area - Lesson Editor */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-8">
+            {/* Lesson Header */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
+                {isEditing ? (
+                  <Input
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className="text-3xl font-bold h-auto py-2 border-0 focus-visible:ring-0"
+                    placeholder="Название урока"
+                  />
                 ) : (
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      className="rounded-[30px]"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Сохранить
-                    </Button>
+                  <h2 className="text-3xl font-bold">{selectedLesson.title}</h2>
+                )}
+
+                <div className="flex gap-2">
+                  {!isEditing ? (
                     <Button
                       variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setIsEditing(false)
-                        setEditedTitle(selectedLesson?.title || "")
-                        setEditedContent(selectedLesson?.content || "")
-                        setEditedObjectives(selectedLesson?.objectives || [])
-                      }}
+                      onClick={() => setIsEditing(true)}
                       className="rounded-[30px]"
                     >
-                      <X className="w-4 h-4 mr-2" />
-                      Отмена
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      Редактировать
                     </Button>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <Button
+                        onClick={handleSave}
+                        className="rounded-[30px]"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        Сохранить
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setIsEditing(false)
+                          setEditedTitle(selectedLesson.title)
+                          setEditedContent(selectedLesson.content)
+                          setEditedObjectives(selectedLesson.objectives)
+                        }}
+                        className="rounded-[30px]"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Отмена
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-            </DialogTitle>
-          </DialogHeader>
 
-          <div className="space-y-6 mt-4">
+              {selectedLesson.logline && (
+                <p className="text-muted-foreground italic">{selectedLesson.logline}</p>
+              )}
+            </div>
+
             {/* Learning Objectives */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Цели обучения</h3>
+            <Card className="p-6 mb-6">
+              <h3 className="text-lg font-semibold mb-4">Цели обучения</h3>
               {isEditing ? (
                 <div className="space-y-2">
                   {editedObjectives.map((objective, index) => (
@@ -413,42 +491,177 @@ export default function LessonsPage() {
                     onClick={handleAddObjective}
                     className="rounded-[30px]"
                   >
+                    <Plus className="w-4 h-4 mr-2" />
                     Добавить цель
                   </Button>
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {selectedLesson?.objectives.map((objective, index) => (
+                  {selectedLesson.objectives.map((objective, index) => (
                     <li key={index} className="flex items-start">
-                      <span className="mr-2 text-muted-foreground">•</span>
+                      <span className="mr-2 text-primary font-bold">•</span>
                       <span>{objective}</span>
                     </li>
                   ))}
                 </ul>
               )}
-            </div>
+            </Card>
+
+            {/* Guidance Panel */}
+            {(selectedLesson.guiding_questions || selectedLesson.expansion_tips || selectedLesson.examples_to_add) && (
+              <Card className="p-6 mb-6 bg-blue-50 dark:bg-blue-950/20">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <FileDown className="w-5 h-5 text-primary" />
+                  Подсказки для расширения материала
+                </h3>
+
+                {/* Guiding Questions */}
+                {selectedLesson.guiding_questions && selectedLesson.guiding_questions.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm">Наводящие вопросы</h4>
+                      {isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleInsertGuidance(selectedLesson.guiding_questions!, 'Наводящие вопросы')}
+                          className="rounded-[20px] text-xs"
+                        >
+                          <FileDown className="w-3 h-3 mr-1" />
+                          Вставить в текст
+                        </Button>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-sm">
+                      {selectedLesson.guiding_questions.map((q, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <span className="mr-2">•</span>
+                          <span>{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Expansion Tips */}
+                {selectedLesson.expansion_tips && selectedLesson.expansion_tips.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm">Советы по расширению</h4>
+                      {isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleInsertGuidance(selectedLesson.expansion_tips!, 'Советы по расширению')}
+                          className="rounded-[20px] text-xs"
+                        >
+                          <FileDown className="w-3 h-3 mr-1" />
+                          Вставить в текст
+                        </Button>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-sm">
+                      {selectedLesson.expansion_tips.map((tip, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <span className="mr-2">•</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Examples to Add */}
+                {selectedLesson.examples_to_add && selectedLesson.examples_to_add.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-medium text-sm">Идеи примеров</h4>
+                      {isEditing && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleInsertGuidance(selectedLesson.examples_to_add!, 'Идеи примеров')}
+                          className="rounded-[20px] text-xs"
+                        >
+                          <FileDown className="w-3 h-3 mr-1" />
+                          Вставить в текст
+                        </Button>
+                      )}
+                    </div>
+                    <ul className="space-y-1 text-sm">
+                      {selectedLesson.examples_to_add.map((example, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <span className="mr-2">•</span>
+                          <span>{example}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Content */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Содержание урока</h3>
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Содержание урока</h3>
+                {isEditing && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileInputChange}
+                      className="hidden"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingImage}
+                      className="rounded-[25px]"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      {isUploadingImage ? 'Загрузка...' : 'Добавить изображение'}
+                    </Button>
+                  </div>
+                )}
+              </div>
               {isEditing ? (
-                <Textarea
-                  value={editedContent}
-                  onChange={(e) => setEditedContent(e.target.value)}
-                  className="min-h-[400px] font-mono text-sm"
-                  placeholder="Содержание урока в формате Markdown..."
-                />
+                <div className="relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    onDrop={handleImageDrop}
+                    onDragOver={handleImageDragOver}
+                    onDragLeave={handleImageDragLeave}
+                    className={`min-h-[500px] font-mono text-sm transition-colors ${
+                      isDraggingOver ? 'border-primary border-2 bg-primary/5' : ''
+                    }`}
+                    placeholder="Содержание урока в формате Markdown... Перетащите изображения для загрузки."
+                  />
+                  {isDraggingOver && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-primary/10 pointer-events-none border-2 border-primary border-dashed rounded">
+                      <div className="bg-background px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-primary" />
+                        <span className="font-medium text-primary">Отпустите для загрузки изображения</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="prose prose-sm max-w-none">
                   <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed">
-                    {selectedLesson?.content}
+                    {selectedLesson.content}
                   </pre>
                 </div>
               )}
-            </div>
+            </Card>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </div>
   )
 }
