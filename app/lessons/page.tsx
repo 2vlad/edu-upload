@@ -547,9 +547,16 @@ export default function LessonsPage() {
 
                 {/* Guiding Questions */}
                 {selectedLesson.guiding_questions && selectedLesson.guiding_questions.length > 0 && (
-                  <div className="mb-4">
+                  <Collapsible
+                    open={isGuidingQuestionsOpen}
+                    onOpenChange={setIsGuidingQuestionsOpen}
+                    className="mb-4"
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Наводящие вопросы</h4>
+                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isGuidingQuestionsOpen ? 'rotate-180' : ''}`} />
+                        <h4 className="font-medium text-sm">Наводящие вопросы</h4>
+                      </CollapsibleTrigger>
                       {isEditing && (
                         <Button
                           variant="outline"
@@ -562,22 +569,31 @@ export default function LessonsPage() {
                         </Button>
                       )}
                     </div>
-                    <ul className="space-y-1 text-sm">
-                      {selectedLesson.guiding_questions.map((q, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="mr-2">•</span>
-                          <span>{q}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                    <CollapsibleContent>
+                      <ul className="space-y-1 text-sm">
+                        {selectedLesson.guiding_questions.map((q, idx) => (
+                          <li key={idx} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{q}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
 
                 {/* Expansion Tips */}
                 {selectedLesson.expansion_tips && selectedLesson.expansion_tips.length > 0 && (
-                  <div className="mb-4">
+                  <Collapsible
+                    open={isExpansionTipsOpen}
+                    onOpenChange={setIsExpansionTipsOpen}
+                    className="mb-4"
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Советы по расширению</h4>
+                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isExpansionTipsOpen ? 'rotate-180' : ''}`} />
+                        <h4 className="font-medium text-sm">Советы по расширению</h4>
+                      </CollapsibleTrigger>
                       {isEditing && (
                         <Button
                           variant="outline"
@@ -590,22 +606,30 @@ export default function LessonsPage() {
                         </Button>
                       )}
                     </div>
-                    <ul className="space-y-1 text-sm">
-                      {selectedLesson.expansion_tips.map((tip, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="mr-2">•</span>
-                          <span>{tip}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                    <CollapsibleContent>
+                      <ul className="space-y-1 text-sm">
+                        {selectedLesson.expansion_tips.map((tip, idx) => (
+                          <li key={idx} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{tip}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
 
                 {/* Examples to Add */}
                 {selectedLesson.examples_to_add && selectedLesson.examples_to_add.length > 0 && (
-                  <div>
+                  <Collapsible
+                    open={isExamplesOpen}
+                    onOpenChange={setIsExamplesOpen}
+                  >
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-sm">Идеи примеров</h4>
+                      <CollapsibleTrigger className="flex items-center gap-2 hover:opacity-70 transition-opacity">
+                        <ChevronDown className={`w-4 h-4 transition-transform ${isExamplesOpen ? 'rotate-180' : ''}`} />
+                        <h4 className="font-medium text-sm">Идеи примеров</h4>
+                      </CollapsibleTrigger>
                       {isEditing && (
                         <Button
                           variant="outline"
@@ -618,15 +642,17 @@ export default function LessonsPage() {
                         </Button>
                       )}
                     </div>
-                    <ul className="space-y-1 text-sm">
-                      {selectedLesson.examples_to_add.map((example, idx) => (
-                        <li key={idx} className="flex items-start">
-                          <span className="mr-2">•</span>
-                          <span>{example}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                    <CollapsibleContent>
+                      <ul className="space-y-1 text-sm">
+                        {selectedLesson.examples_to_add.map((example, idx) => (
+                          <li key={idx} className="flex items-start">
+                            <span className="mr-2">•</span>
+                            <span>{example}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </Card>
             )}
