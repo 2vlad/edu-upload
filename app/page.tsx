@@ -8,6 +8,13 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 // Supported file types
 const SUPPORTED_MIME_TYPES = [
@@ -51,6 +58,12 @@ export default function HomePage() {
   const [processingProgress, setProcessingProgress] = useState(0)
   const [processingMessage, setProcessingMessage] = useState("")
   const [error, setError] = useState<string | null>(null)
+  // Model selection: "chatgpt5" | "sonnet4"
+  const [modelChoice, setModelChoice] = useState<string>(
+    typeof window !== 'undefined'
+      ? localStorage.getItem('preferredModel') || (process.env.NEXT_PUBLIC_DEFAULT_AI_MODEL || 'chatgpt5')
+      : 'chatgpt5'
+  )
   const router = useRouter()
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -129,17 +142,18 @@ export default function HomePage() {
       files.forEach((file) => {
         formData.append("files", file)
       })
+      // include model choice
+      formData.append('modelChoice', modelChoice)
 
-      const response = await fetch("/api/process-files", {
-        method: "POST",
-        body: formData,
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Не удалось обработать файлы")
+      const response = await fetch("/api/process-files", { method: "POST", body: formData })
+      const ct = response.headers.get('content-type') || ''
+      const readJsonOrText = async () => {
+        if (ct.includes('application/json')) return await response.json()
+        const text = await response.text()
+        throw new Error(`[HTTP ${response.status}] ${text.slice(0, 140)}`)
       }
+      const data = await readJsonOrText()
+      if (!response.ok) throw new Error(data.error || "Не удалось обработать файлы")
 
       // Set progress to 100% when done
       setProcessingProgress(100)
@@ -210,6 +224,26 @@ export default function HomePage() {
         </div>
 
         <Card className="p-8 mb-8">
+          {/* Model selector */}
+          <div className="mb-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <label className="text-sm text-muted-foreground">Модель:</label>
+            <Select
+              value={modelChoice}
+              onValueChange={(v) => {
+                setModelChoice(v)
+                try { localStorage.setItem('preferredModel', v) } catch {}
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-[260px] rounded-[30px]">
+                <SelectValue placeholder="Выберите модель" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chatgpt5">ChatGPT 5 (OpenAI)</SelectItem>
+                <SelectItem value="sonnet4">Sonnet 4 (Anthropic)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div
             className={`border-2 border-dashed rounded-[30px] p-12 text-center transition-colors ${
               isDragOver ? "border-primary bg-accent" : "border-border hover:border-primary/50"

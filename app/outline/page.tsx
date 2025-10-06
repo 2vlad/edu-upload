@@ -234,6 +234,72 @@ export default function OutlinePage() {
     fileInputRef.current?.click()
   }
 
+  // Helper: get JSON if available, otherwise surface readable error text
+  const readResponse = async (response: Response) => {
+    const ct = response.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      return await response.json()
+    }
+    const text = await response.text()
+    throw new Error(`[HTTP ${response.status}] ${text.slice(0, 140)}`)
+  }
+
+  // Process files one-by-one to avoid platform body limits (e.g., Vercel 4–5 MB/request)
+  const processFilesSequentially = async (incoming: File[], baseCourse: CourseData) => {
+    let currentCourse = baseCourse
+    let aggregatedChanges: CourseChanges | null = null
+
+    for (const file of incoming) {
+      const maxMb = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB || '4.5')
+      const maxBytes = Math.floor(maxMb * 1024 * 1024 * 0.92)
+      if (file.size > maxBytes) {
+        throw new Error(`Файл «${file.name}» слишком большой (${(file.size/1024/1024).toFixed(1)} MB). Лимит запроса ~${maxMb} MB. Сожмите файл или загрузите текстовую версию.`)
+      }
+
+      const formData = new FormData()
+      formData.append('files', file)
+      formData.append('existingCourse', JSON.stringify(currentCourse))
+
+      // forward preferred model if present
+      try {
+        const preferred = localStorage.getItem('preferredModel')
+        if (preferred) formData.append('modelChoice', preferred)
+      } catch {}
+
+      const response = await fetch('/api/process-files', { method: 'POST', body: formData })
+      if (!response.ok) {
+        await readResponse(response) // throws with readable message
+      }
+      const newCourseData = await readResponse(response)
+
+      const { mergedCourse, changes } = mergeCourseUpdates(currentCourse, newCourseData)
+      currentCourse = mergedCourse
+
+      if (!aggregatedChanges) {
+        aggregatedChanges = changes
+      } else {
+        aggregatedChanges.newLessons = [
+          ...aggregatedChanges.newLessons,
+          ...changes.newLessons,
+        ]
+        aggregatedChanges.updatedLessons = [
+          ...aggregatedChanges.updatedLessons,
+          ...changes.updatedLessons,
+        ]
+        aggregatedChanges.preservedLessons = [
+          ...aggregatedChanges.preservedLessons,
+          ...changes.preservedLessons,
+        ]
+        aggregatedChanges.removedLessons = [
+          ...aggregatedChanges.removedLessons,
+          ...changes.removedLessons,
+        ]
+      }
+    }
+
+    return { currentCourse, aggregatedChanges }
+  }
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0 || !courseData) return
@@ -242,42 +308,14 @@ export default function OutlinePage() {
     setShowUpdateDialog(false)
 
     try {
-      // Create FormData with new files and existing course context
-      const formData = new FormData()
-      Array.from(files).forEach((file) => {
-        formData.append('files', file)
-      })
+      // Sequential requests under body limit
+      const { currentCourse, aggregatedChanges } = await processFilesSequentially(
+        Array.from(files),
+        courseData
+      )
 
-      // Include existing course data for intelligent merging
-      formData.append('existingCourse', JSON.stringify(courseData))
-
-      // Include preferred model if set
-      try {
-        const preferred = localStorage.getItem('preferredModel')
-        if (preferred) {
-          formData.append('modelChoice', preferred)
-        }
-      } catch {}
-
-      // Call API to process files with course context
-      const response = await fetch('/api/process-files', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to process files')
-      }
-
-      const newCourseData = await response.json()
-
-      // Merge new data with existing course
-      const { mergedCourse, changes } = mergeCourseUpdates(courseData, newCourseData)
-
-      // Show preview
-      setPreviewChanges(changes)
-      setPendingUpdate(mergedCourse)
+      setPreviewChanges(aggregatedChanges || null)
+      setPendingUpdate(currentCourse)
       setShowPreview(true)
     } catch (error) {
       console.error('Error updating course:', error)

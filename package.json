@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "latest",
     "@ai-sdk/groq": "latest",
     "@ai-sdk/openai": "^2.0.27",
     "@hookform/resolvers": "^3.10.0",

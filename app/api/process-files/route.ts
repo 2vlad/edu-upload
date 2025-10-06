@@ -85,20 +85,13 @@ function chunkText(text: string, maxTokens: number = 5000): string[] {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if API key is configured
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Ключ API OpenAI не настроен. Пожалуйста, добавьте OPENAI_API_KEY в файл .env.local.' },
-        { status: 500 }
-      )
-    }
-
     // Ensure user is authenticated (anonymous or regular)
     await ensureAuth()
 
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     const existingCourseJson = formData.get('existingCourse') as string | null
+    const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt5')
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Файлы не предоставлены' }, { status: 400 })
@@ -205,9 +198,59 @@ export async function POST(request: NextRequest) {
       `
     }
 
-    // Generate structured course using OpenAI
+    // Resolve model based on selection
+    let selectedProvider: 'openai' | 'anthropic' = 'openai'
+    let selectedModelId: string = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+    let model: any = openai(selectedModelId)
+
+    if (modelChoice === 'sonnet4') {
+      // Try Anthropic dynamically; if unavailable, fallback to OpenAI
+      if (process.env.ANTHROPIC_API_KEY) {
+        try {
+          const anthropicPkg = ['@ai-sdk','/anthropic'].join('')
+          const mod = await import(anthropicPkg as any)
+          // @ts-ignore - dynamic import type
+          const createAnthropic = (mod as any).createAnthropic
+          const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+          selectedProvider = 'anthropic'
+          selectedModelId = process.env.ANTHROPIC_MODEL_SONNET_4 || 'claude-3-5-sonnet-20241022'
+          model = anthropic(selectedModelId)
+        } catch (e) {
+          console.warn('Anthropic SDK not available, falling back to OpenAI:', e)
+          selectedProvider = 'openai'
+          selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+          model = openai(selectedModelId)
+        }
+      } else {
+        console.warn('ANTHROPIC_API_KEY not set; using OpenAI fallback')
+        selectedProvider = 'openai'
+        selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+        model = openai(selectedModelId)
+      }
+    } else {
+      // Explicit ChatGPT 5 choice → OpenAI
+      selectedProvider = 'openai'
+      selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+      model = openai(selectedModelId)
+    }
+
+    // Validate provider keys for the finally selected provider
+    if (selectedProvider === 'openai' && !process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: 'Ключ API OpenAI не настроен. Добавьте OPENAI_API_KEY в .env.local.' },
+        { status: 500 }
+      )
+    }
+    if (selectedProvider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json(
+        { error: 'Ключ API Anthropic не настроен. Добавьте ANTHROPIC_API_KEY в .env.local или выберите другую модель.' },
+        { status: 500 }
+      )
+    }
+
+    // Generate structured course
     const { object: courseStructure } = await generateObject({
-      model: openai('gpt-4o'),
+      model,
       prompt,
       schema: z.object({
         title: z.string().describe('Название курса на русском языке'),
@@ -254,6 +297,11 @@ export async function POST(request: NextRequest) {
         totalFiles: files.length,
         documentsProcessed: documents.length,
         imagesUploaded: images.length,
+        model: {
+          choice: modelChoice,
+          provider: selectedProvider,
+          modelId: selectedModelId,
+        },
         extractedFiles: extractedFiles.map(f => ({
           id: f.id,
           filename: f.filename,
