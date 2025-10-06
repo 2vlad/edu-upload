@@ -23,7 +23,7 @@ import {
   Upload
 } from "lucide-react"
 import { markAsEdited } from "@/lib/types/course"
-import { supabase } from "@/lib/supabaseClient"
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient"
 import { publishCourse } from "@/app/actions/publish-course"
 import { useToast } from "@/hooks/use-toast"
 
@@ -228,6 +228,12 @@ export default function LessonsPage() {
   const uploadImageToSupabase = async (file: File): Promise<string | null> => {
     try {
       setIsUploadingImage(true)
+
+      // Check if Supabase is configured
+      if (!isSupabaseConfigured() || !supabase) {
+        alert('Загрузка изображений требует настройки Supabase. Пожалуйста, настройте Supabase Storage для использования этой функции.')
+        return null
+      }
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop()

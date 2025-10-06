@@ -624,7 +624,7 @@
         "dependencies": [
           3
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -632,7 +632,7 @@
             "description": "Modify the file input accept attribute in app/page.tsx to support DOCX, MD, TXT, RTF, HTML, PNG, JPG, WebP formats in addition to PDF",
             "dependencies": [],
             "details": "Update the file input accept attribute from '.pdf' to include all supported formats: '.pdf,.docx,.md,.txt,.rtf,.html,.png,.jpg,.jpeg,.webp'. This change should be applied to both the hidden file input element and any file selection validation logic.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify file input dialog shows all supported file types when opened, test that users can select files of each supported format"
           },
           {
@@ -643,7 +643,7 @@
               "10.1"
             ],
             "details": "Replace the hardcoded 'application/pdf' MIME type checks with a comprehensive list including: 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/markdown', 'text/plain', 'application/rtf', 'text/html', 'image/png', 'image/jpeg', 'image/webp'. Create a utility function to validate supported file types.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test drag-and-drop with each supported file format, verify unsupported file types are rejected, test mixed file type uploads"
           },
           {
@@ -654,7 +654,7 @@
               "10.2"
             ],
             "details": "Replace the generic FileText icon with conditional icons based on file type (e.g., Image icon for PNG/JPG/WebP, FileText for documents, Code icon for HTML/MD). Add MIME type display alongside file size. Import additional icons from lucide-react like Image, Code, File icons. Update the file display component to show file type-specific information.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify correct icons display for each file type, test file information accuracy, ensure responsive layout with different file types"
           },
           {
@@ -665,7 +665,7 @@
               "10.3"
             ],
             "details": "Update Russian processing messages in the useEffect hook to be format-agnostic: replace 'Чтение PDF-файлов...' with 'Обработка файлов...', update other messages to reflect general document processing. Update the file count display logic to handle mixed file types appropriately. Ensure all user-facing text reflects multi-format support.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test processing flow with different file types, verify appropriate messages display, test with mixed file uploads to ensure correct file count and messaging"
           },
           {
@@ -676,7 +676,7 @@
               "10.4"
             ],
             "details": "Update the router.push('/lessons') call in the handleCreateCourse function to router.push('/outline'). This change aligns with the new workflow where users first review and edit the course outline before accessing individual lessons. Ensure the courseData is still properly stored in localStorage for the outline page to consume.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test successful course creation redirects to outline page, verify courseData is accessible on outline page, test the complete upload-to-outline workflow"
           }
         ]
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-06T18:32:04.854Z",
+      "updated": "2025-10-06T18:36:04.094Z",
       "description": "Tasks for master context"
     }
   }

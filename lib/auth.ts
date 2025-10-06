@@ -1,11 +1,23 @@
-import { supabase } from './supabaseClient'
+import { supabase, isSupabaseConfigured } from './supabaseClient'
 
 /**
  * Ensures user is authenticated (anonymous or regular).
  * Checks for existing session first to avoid creating duplicate anonymous users.
+ * If Supabase is not configured, returns a mock session.
  * @returns The current session or throws an error
  */
 export async function ensureAuth() {
+  // If Supabase is not configured, return mock session
+  if (!isSupabaseConfigured() || !supabase) {
+    return {
+      user: {
+        id: 'local-user',
+        is_anonymous: true,
+      },
+      access_token: 'mock-token',
+    } as any
+  }
+
   // Check for existing session first
   const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
@@ -37,6 +49,10 @@ export async function ensureAuth() {
  * @returns The user ID or null if not authenticated
  */
 export async function getCurrentUserId(): Promise<string | null> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return 'local-user'
+  }
+
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user?.id ?? null
 }
@@ -46,6 +62,10 @@ export async function getCurrentUserId(): Promise<string | null> {
  * @returns True if user is anonymous, false otherwise
  */
 export async function isAnonymousUser(): Promise<boolean> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return true
+  }
+
   const { data: { session } } = await supabase.auth.getSession()
   return session?.user?.is_anonymous ?? false
 }
@@ -54,6 +74,10 @@ export async function isAnonymousUser(): Promise<boolean> {
  * Signs out the current user
  */
 export async function signOut() {
+  if (!isSupabaseConfigured() || !supabase) {
+    return
+  }
+
   const { error } = await supabase.auth.signOut()
   if (error) {
     throw new Error(`Failed to sign out: ${error.message}`)

@@ -1,7 +1,7 @@
 'use server'
 
 import { nanoid } from 'nanoid'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
 import { ensureAuth } from '@/lib/auth'
 
 export interface PublishCourseInput {
@@ -65,6 +65,14 @@ export async function publishCourse(
   input: PublishCourseInput
 ): Promise<PublishCourseResult> {
   try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        error: 'Публикация курсов требует настройки Supabase. Курс сохранен локально.',
+      }
+    }
+
     // Ensure user is authenticated (anonymous or regular)
     const session = await ensureAuth()
     const userId = session.user.id
@@ -248,6 +256,13 @@ export async function publishCourse(
  */
 export async function unpublishCourse(slug: string): Promise<PublishCourseResult> {
   try {
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        error: 'Требуется настройка Supabase',
+      }
+    }
+
     const session = await ensureAuth()
     const userId = session.user.id
 
@@ -282,6 +297,13 @@ export async function unpublishCourse(slug: string): Promise<PublishCourseResult
  */
 export async function deleteCourse(slug: string): Promise<PublishCourseResult> {
   try {
+    if (!isSupabaseConfigured() || !supabase) {
+      return {
+        success: false,
+        error: 'Требуется настройка Supabase',
+      }
+    }
+
     const session = await ensureAuth()
     const userId = session.user.id
 
