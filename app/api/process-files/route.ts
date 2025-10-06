@@ -85,13 +85,29 @@ function chunkText(text: string, maxTokens: number = 5000): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const traceId = (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
+    const t0 = Date.now()
+    const log = (level: 'info' | 'warn' | 'error', msg: string, data?: any) => {
+      const line = `[process-files][${traceId}] ${msg}`
+      if (level === 'info') console.info(line, data ?? '')
+      else if (level === 'warn') console.warn(line, data ?? '')
+      else console.error(line, data ?? '')
+    }
     // Ensure user is authenticated (anonymous or regular)
     await ensureAuth()
+    log('info', 'Auth ensured')
 
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     const existingCourseJson = formData.get('existingCourse') as string | null
     const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt5')
+
+    log('info', 'Incoming request meta', {
+      filesCount: files?.length || 0,
+      fileSummaries: files.slice(0, 10).map(f => ({ name: f.name, type: f.type, size: f.size })),
+      existingCourseBytes: existingCourseJson?.length || 0,
+      modelChoice,
+    })
 
     if (!files || files.length === 0) {
       return NextResponse.json({ error: 'Файлы не предоставлены' }, { status: 400 })
@@ -112,6 +128,7 @@ export async function POST(request: NextRequest) {
     try {
       extractedFiles = await parseFiles(files)
     } catch (error) {
+      log('error', 'parseFiles failed', { error: error instanceof Error ? error.message : String(error) })
       return NextResponse.json(
         { error: error instanceof Error ? error.message : 'Не удалось обработать файлы' },
         { status: 400 }
@@ -122,6 +139,14 @@ export async function POST(request: NextRequest) {
     const documents = extractedFiles.filter(f => f.text)
     const images = extractedFiles.filter(f => f.imagePath)
 
+    log('info', 'Files parsed', {
+      extractedTotal: extractedFiles.length,
+      documents: documents.length,
+      images: images.length,
+      firstDoc: documents[0]?.filename,
+      firstImg: images[0]?.filename,
+    })
+
     if (documents.length === 0) {
       return NextResponse.json(
         { error: 'Не найдено ни одного текстового документа для обработки' },
@@ -131,6 +156,7 @@ export async function POST(request: NextRequest) {
 
     // Combine text from all documents
     const combinedText = combineExtractedText(documents)
+    const combinedChars = combinedText.length
 
     // Check if we need to chunk the text
     const chunks = chunkText(combinedText, 50000) // Conservative limit for GPT-4o
@@ -141,6 +167,12 @@ export async function POST(request: NextRequest) {
 
     // Use the first chunk for course generation (or combine if needed)
     const textForGeneration = chunks[0]
+    log('info', 'Prepared text', {
+      combinedChars,
+      chunkCount: chunks.length,
+      firstChunkChars: textForGeneration?.length || 0,
+      firstChunkPreview: textForGeneration?.slice(0, 400) || ''
+    })
 
     // Build prompt based on whether we're updating or creating
     let prompt = ''
@@ -248,50 +280,78 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    log('info', 'Model selected', { provider: selectedProvider, modelId: selectedModelId })
+
     // Generate structured course
-    const { object: courseStructure } = await generateObject({
-      model,
-      prompt,
-      schema: z.object({
-        title: z.string().describe('Название курса на русском языке'),
-        description: z.string().describe('Описание курса на русском языке'),
-        outline: z.array(
-          z.object({
-            lesson_id: z.string().describe('Идентификатор урока для стабильности'),
-            title: z.string().describe('Название урока'),
-            logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
-            bullets: z.array(z.string()).min(3).max(7).describe('Тезисы урока'),
-          })
-        ),
-        lessons: z.array(
-          z.object({
-            id: z.string().describe('Уникальный идентификатор урока'),
-            title: z.string().describe('Название урока на русском языке'),
-            logline: z.string().optional().describe('Краткий логлайн урока'),
-            content: z.string().describe('Содержание урока на русском языке (300-400 слов)'),
-            objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
-            guiding_questions: z
-              .array(z.string())
-              .min(3)
-              .max(8)
-              .describe('Наводящие вопросы для расширения материала'),
-            expansion_tips: z
-              .array(z.string())
-              .min(3)
-              .max(6)
-              .describe('Практические советы по расширению контента'),
-            examples_to_add: z
-              .array(z.string())
-              .min(2)
-              .max(5)
-              .describe('Идеи примеров и кейсов'),
-          })
-        ),
-      }),
-    })
+    let courseStructure: any
+    try {
+      const result = await generateObject({
+        model,
+        prompt,
+        schema: z.object({
+          title: z.string().describe('Название курса на русском языке'),
+          description: z.string().describe('Описание курса на русском языке'),
+          outline: z.array(
+            z.object({
+              lesson_id: z.string().describe('Идентификатор урока для стабильности'),
+              title: z.string().describe('Название урока'),
+              logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
+              bullets: z.array(z.string()).min(3).max(7).describe('Тезисы урока'),
+            })
+          ),
+          lessons: z.array(
+            z.object({
+              id: z.string().describe('Уникальный идентификатор урока'),
+              title: z.string().describe('Название урока на русском языке'),
+              logline: z.string().optional().describe('Краткий логлайн урока'),
+              content: z.string().describe('Содержание урока на русском языке (300-400 слов)'),
+              objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
+              guiding_questions: z
+                .array(z.string())
+                .min(3)
+                .max(8)
+                .describe('Наводящие вопросы для расширения материала'),
+              expansion_tips: z
+                .array(z.string())
+                .min(3)
+                .max(6)
+                .describe('Практические советы по расширению контента'),
+              examples_to_add: z
+                .array(z.string())
+                .min(2)
+                .max(5)
+                .describe('Идеи примеров и кейсов'),
+            })
+          ),
+        }),
+      })
+      courseStructure = result.object
+    } catch (err: any) {
+      // AI SDK may attach useful fields: cause, text, value, usage, response
+      log('error', 'generateObject failed', {
+        name: err?.name,
+        message: err?.message,
+        cause: err?.cause?.issues || err?.cause || undefined,
+        usage: err?.usage || undefined,
+        responseHeaders: err?.response?.headers || undefined,
+        responseModel: err?.response?.modelId || undefined,
+        textSnippet: typeof err?.text === 'string' ? err.text.slice(0, 600) : undefined,
+        valueSample: err?.value ? JSON.stringify(err.value)?.slice(0, 600) : undefined,
+      })
+      const res = NextResponse.json({ error: 'AI генерация не прошла валидацию', traceId }, { status: 500 })
+      res.headers.set('X-Trace-Id', traceId)
+      return res
+    }
 
     // Return course structure along with extracted file info
-    return NextResponse.json({
+    const durationMs = Date.now() - t0
+    log('info', 'Success', {
+      lessons: courseStructure?.lessons?.length || 0,
+      outline: courseStructure?.outline?.length || 0,
+      durationMs,
+    })
+
+    const res = NextResponse.json({
       ...courseStructure,
       metadata: {
         totalFiles: files.length,
@@ -312,11 +372,13 @@ export async function POST(request: NextRequest) {
         })),
       },
     })
+    res.headers.set('X-Trace-Id', traceId)
+    return res
   } catch (error) {
-    console.error('Error processing files:', error)
-    return NextResponse.json(
-      { error: 'Не удалось обработать файлы' },
-      { status: 500 }
-    )
+    const traceId = (globalThis as any).crypto?.randomUUID?.() || Math.random().toString(36).slice(2)
+    console.error(`[process-files][${traceId}] Unhandled error`, error)
+    const res = NextResponse.json({ error: 'Не удалось обработать файлы', traceId }, { status: 500 })
+    res.headers.set('X-Trace-Id', traceId)
+    return res
   }
 }
