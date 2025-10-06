@@ -487,7 +487,7 @@
         "dependencies": [
           7
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -495,7 +495,7 @@
             "description": "Set up Supabase client configuration and create database tables for courses, lessons, and user data",
             "dependencies": [],
             "details": "Install @supabase/supabase-js package and create lib/supabase.ts configuration file. Design database schema with courses table (id, title, description, slug, status, created_at, user_id), lessons table (id, course_id, title, content, objectives, order_index), and user authentication setup. Create SQL migrations for table creation with proper relationships and indexes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test Supabase connection, verify table creation, test basic CRUD operations on tables"
           },
           {
@@ -506,7 +506,7 @@
               "8.1"
             ],
             "details": "Implement authentication logic that automatically creates anonymous user sessions when users attempt to publish without being logged in. Use Supabase auth.signInAnonymously() method. Create auth utilities in lib/auth.ts to handle user session management, check authentication status, and provide fallback anonymous authentication. Store user session state in localStorage for persistence.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test anonymous auth creation, verify session persistence, test auth state checking utilities"
           },
           {
@@ -518,7 +518,7 @@
               "8.2"
             ],
             "details": "Create app/actions/publish-course.ts server action using 'use server' directive. Implement publishCourse function that accepts course data, generates unique slugs using nanoid or similar, validates input data, and saves to Supabase courses and lessons tables. Handle course status updates (draft -> published). Implement upsert logic to handle both new courses and updates to existing courses. Include proper error handling and validation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test server action with valid/invalid data, verify slug generation uniqueness, test upsert logic for new and existing courses"
           },
           {
@@ -529,7 +529,7 @@
               "8.1"
             ],
             "details": "Set up Supabase Storage buckets for course files and images. Create upload utilities in lib/storage.ts to handle file uploads with proper naming conventions (course-id/filename). Implement image optimization and resizing for web delivery. Add file validation (size limits, file types). Create storage bucket policies for public read access and authenticated write access. Handle file path generation and URL retrieval.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test file uploads with various formats, verify storage bucket permissions, test file size limits and validation"
           },
           {
@@ -541,7 +541,7 @@
               "8.4"
             ],
             "details": "Modify app/lessons/page.tsx to replace localStorage publishing with Supabase server action. Update handlePublish function to call the publishCourse server action, handle loading states during publish, display success/error messages using toast notifications. Implement proper error handling and rollback mechanisms for failed publishes. Add publish status indicators and progress tracking. Ensure backwards compatibility with existing localStorage data during transition.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test complete publish flow from lessons page, verify error handling, test loading states and user feedback, validate data persistence in Supabase"
           }
         ]
@@ -556,7 +556,7 @@
         "dependencies": [
           8
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -684,7 +684,7 @@
     ],
     "metadata": {
       "created": "2025-10-04T13:37:34.249Z",
-      "updated": "2025-10-06T18:12:37.556Z",
+      "updated": "2025-10-06T18:19:48.871Z",
       "description": "Tasks for master context"
     }
   }
