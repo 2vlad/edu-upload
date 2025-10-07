@@ -149,10 +149,8 @@ export async function publishCourse(
           title: input.title,
           description: input.description,
           slug,
-          status: 'published',
+          published: true,
           user_id: userId,
-          outline: input.outline || null,
-          updated_at: new Date().toISOString(),
         },
         {
           onConflict: 'id',
@@ -171,23 +169,32 @@ export async function publishCourse(
 
     courseId = course.id
 
-    // Delete existing lessons if updating
+    // Delete existing lessons and source files if updating
     if (input.existingSlug) {
-      const { error: deleteError } = await supabase
+      const { error: deleteLessonsError } = await supabase
         .from('lessons')
         .delete()
         .eq('course_id', courseId)
 
-      if (deleteError) {
-        console.error('Error deleting old lessons:', deleteError)
+      if (deleteLessonsError) {
+        console.error('Error deleting old lessons:', deleteLessonsError)
         // Continue anyway - we'll insert new lessons
+      }
+
+      const { error: deleteFilesError } = await supabase
+        .from('source_files')
+        .delete()
+        .eq('course_id', courseId)
+
+      if (deleteFilesError) {
+        console.error('Error deleting old source files:', deleteFilesError)
+        // Continue anyway - we'll insert new source files
       }
     }
 
     // Insert lessons
     const lessonsToInsert = input.lessons.map((lesson, index) => ({
       course_id: courseId,
-      lesson_id: lesson.id,
       title: lesson.title,
       content: lesson.content,
       objectives: lesson.objectives,
@@ -196,9 +203,6 @@ export async function publishCourse(
       expansion_tips: lesson.expansion_tips || null,
       examples_to_add: lesson.examples_to_add || null,
       order_index: index,
-      content_edited: lesson.contentEdited || false,
-      title_edited: lesson.titleEdited || false,
-      objectives_edited: lesson.objectivesEdited || false,
     }))
 
     const { error: lessonsError } = await supabase
@@ -221,16 +225,13 @@ export async function publishCourse(
     if (input.sourceFiles && input.sourceFiles.length > 0) {
       const sourceFilesToInsert = input.sourceFiles.map((file) => ({
         course_id: courseId,
-        file_id: file.id,
         filename: file.filename,
-        mime_type: file.mime,
+        mime: file.mime,
       }))
 
       const { error: filesError } = await supabase
         .from('source_files')
-        .upsert(sourceFilesToInsert, {
-          onConflict: 'file_id',
-        })
+        .insert(sourceFilesToInsert)
 
       if (filesError) {
         console.error('Source files error:', filesError)
@@ -273,7 +274,7 @@ export async function unpublishCourse(slug: string): Promise<PublishCourseResult
 
     const { error } = await supabase
       .from('courses')
-      .update({ status: 'draft' })
+      .update({ published: false })
       .eq('slug', slug)
       .eq('user_id', userId)
 
