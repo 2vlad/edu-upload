@@ -3,7 +3,7 @@ import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { parseFiles, ExtractedFile } from '@/lib/parsers'
-import { ensureAuth } from '@/lib/auth'
+import { ensureAuthServer } from '@/lib/auth-server'
 
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     const hasImages = files.some(f => f.type?.startsWith('image/'))
     if (hasImages) {
       try {
-        await ensureAuth()
+        await ensureAuthServer()
         log('info', 'Auth ensured (images present)')
       } catch (e: any) {
         const msg = String(e?.message || e)

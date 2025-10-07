@@ -687,5 +687,101 @@
       "updated": "2025-10-06T18:36:04.094Z",
       "description": "Tasks for master context"
     }
+  },
+  "database": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Добавить SSR-клиент Supabase для серверных компонентов",
+        "description": "Создать lib/supabase/server.ts с функцией createSupabaseServer() используя @supabase/ssr. Это решит проблему анонимных логинов и корректно обработает сессии через cookies.",
+        "details": "Файл: lib/supabase/server.ts (новый)\n\nРеализовать:\n- Импортировать cookies из next/headers\n- Импортировать createServerClient из @supabase/ssr\n- Экспортировать функцию createSupabaseServer()\n- Настроить обработчики cookies: get, set, remove\n- Использовать env переменные NEXT_PUBLIC_SUPABASE_URL и NEXT_PUBLIC_SUPABASE_ANON_KEY\n\nЗачем: серверные actions/страницы корректно увидят сессию пользователя (куки/JWT). Это снимет проблему «падают анонимные логины» и позволит фильтровать записи по auth.uid() без костылей.",
+        "testStrategy": "Проверить что createSupabaseServer() корректно возвращает клиента с auth сессией в server components",
+        "status": "in-progress",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Создать server actions для работы с курсами из БД",
+        "description": "Создать app/actions/courses.ts с полным набором server actions для CRUD операций над курсами и уроками через Supabase БД.",
+        "details": "Файл: app/actions/courses.ts (новый, use server)\n\nРеализовать функции:\n1. createCourseFromPayload(payload) — создать курс + уроки (для автосохранения после генерации)\n2. getMyCourses() — список курсов пользователя (для «Мои курсы»)\n3. getCourse(id) — курс с уроками (для редактора)\n4. updateCourse(id, patch) — обновить заголовок/описание/статус\n5. updateLesson(id, patch) — правка урока\n6. reorderLessons(courseId, orderedIds) — смена порядка\n7. deleteCourse(id) — удаление курса каскадом\n\nИспользовать:\n- createSupabaseServer() для всех операций\n- Таблицы из существующей миграции (courses, lessons, source_files)\n- Фильтрацию по user_id через RLS",
+        "testStrategy": "Протестировать каждую функцию: создание курса, получение списка, обновление, удаление. Проверить что RLS корректно работает.",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Исправить lesson_id в схеме и publish-course.ts",
+        "description": "Убрать поле lesson_id из инсёртов в таблицу lessons, т.к. этого поля нет в текущей миграции. Связь уроков с курсом идет через course_id.",
+        "details": "Файлы: app/actions/publish-course.ts и новые server actions\n\nПроблема: В текущей миграции lessons нет столбца lesson_id, но код пытается его вставить.\n\nИсправления:\n1. В publish-course.ts удалить lesson_id из lessonsToInsert\n2. В новых server actions (courses.ts) не использовать lesson_id при вставке\n3. Связь — через lessons.course_id + lessons.id как PK\n4. Если lesson_id нужен для FK в source_files/course_assets — проверить что там правильные FK на lessons.id\n\nКритично для работы publish функции!",
+        "testStrategy": "Попробовать опубликовать курс и убедиться что нет ошибок SQL про неизвестный столбец lesson_id",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Обновить страницу «Мои курсы» для загрузки из БД",
+        "description": "Переделать app/courses/page.tsx в Server Component, загружать курсы из Supabase через getMyCourses(). Показывать БД курсы и локальные черновики отдельными секциями.",
+        "details": "Файл: app/courses/page.tsx (правки)\n\nИзменения:\n1. Сделать страницу Server Component (убрать \"use client\")\n2. В async рендере вызывать getMyCourses() для загрузки курсов из БД\n3. Разделить UI на две секции:\n   - \"Мои курсы (из профиля)\" — данные из БД\n   - \"Локальные черновики\" — из localStorage (клиентская часть)\n4. Показывать статус курса (draft/published)\n5. Ссылки на редактор: /courses/[id] для БД курсов\n\nСохранить существующую функциональность с localStorage для гостей.",
+        "testStrategy": "Залогиниться, создать курс, проверить что он отображается в секции из БД. Выйти — локальные черновики остаются.",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Создать редактор курса из БД /courses/[id]",
+        "description": "Добавить новую страницу app/courses/[id]/page.tsx для редактирования курса загруженного из Supabase. Переиспользовать компоненты из outline/lessons pages.",
+        "details": "Файл: app/courses/[id]/page.tsx (новый)\n\nРеализация:\n1. Server Component: загрузить курс через getCourse(id)\n2. Вынести общие компоненты редактора из app/outline/page.tsx и app/lessons/page.tsx\n3. Создать компоненты:\n   - CourseEditor (title, description)\n   - LessonsList (drag-drop reorder)\n   - LessonEditor (content, objectives)\n4. Использовать server actions для сохранения:\n   - updateCourse(id, patch)\n   - updateLesson(id, patch)\n   - reorderLessons(courseId, orderedIds)\n5. Показывать статус сохранения\n6. Кнопка \"Опубликовать\" / \"Снять с публикации\"\n\nИзбегать дублирования кода с существующими редакторами.",
+        "testStrategy": "Открыть /courses/[id], отредактировать название, содержание урока, изменить порядок — обновить страницу и проверить что изменения сохранились",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Добавить автосохранение в БД после генерации курса",
+        "description": "После успешной генерации курса через /api/process-files автоматически сохранять результат в Supabase для авторизованных пользователей и делать редирект на /courses/[id].",
+        "details": "Файл: app/page.tsx (правки в handleProcessFiles)\n\nЛогика:\n1. После успешного ответа от /api/process-files\n2. Проверить useAuth(): если пользователь авторизован (не анонимный)\n   - Вызвать createCourseFromPayload(result)\n   - Получить courseId\n   - Редирект на /courses/[id]\n3. Если гость (анонимный):\n   - Текущий флоу: сохранить в localStorage\n   - Редирект на /outline как сейчас\n   - Показать кнопку \"Сохранить в профиль\" (после логина — вызвать createCourseFromPayload и очистить localStorage)\n\nДополнительно:\n- Показать toast с уведомлением \"Курс сохранен в профиль\"\n- Обработка ошибок при сохранении в БД",
+        "testStrategy": "Залогиниться, загрузить PDF, дождаться генерации — проверить редирект на /courses/[id] и наличие курса в БД. Выйти, повторить — проверить сохранение в localStorage.",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Обновить публичную страницу по slug для чтения из БД",
+        "description": "Переделать app/courses/[slug]/page.tsx чтобы загружать опубликованный курс из Supabase по slug вместо localStorage. Добавить поле slug в таблицу courses если его нет.",
+        "details": "Файл: app/courses/[slug]/page.tsx (правки)\n\nИзменения:\n1. Сделать Server Component\n2. Создать server action getPublicCourse(slug) в courses.ts\n3. Загружать курс из БД по slug (только со status = 'published')\n4. Показывать 404 если slug не найден или курс не опубликован\n5. Рендерить публичный вид курса (read-only)\n\nМиграция (если нужно):\n- Проверить наличие поля courses.slug (text unique)\n- Если нет — добавить миграцию или ALTER TABLE\n- При publish в publishCourse() генерировать slug если его нет\n- Slug формат: {title-slug}-{nanoid(8)}\n\nRLS: публичное чтение для published курсов.",
+        "testStrategy": "Опубликовать курс, получить slug, открыть /courses/[slug] в инкогнито — должен показать курс. Попробовать несуществующий slug — 404.",
+        "status": "pending",
+        "dependencies": [
+          2
+        ],
+        "priority": "medium",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-10-07T18:28:16.707Z",
+      "updated": "2025-10-07T18:40:56.479Z",
+      "description": "Database and Supabase integration features"
+    }
   }
 }

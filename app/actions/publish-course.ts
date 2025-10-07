@@ -1,8 +1,9 @@
 'use server'
 
 import { nanoid } from 'nanoid'
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient'
-import { ensureAuth } from '@/lib/auth'
+import { isSupabaseConfigured } from '@/lib/supabaseClient'
+import { createSupabaseServer } from '@/lib/supabase/server'
+import { ensureAuthServer } from '@/lib/auth-server'
 
 export interface PublishCourseInput {
   title: string
@@ -66,15 +67,18 @@ export async function publishCourse(
 ): Promise<PublishCourseResult> {
   try {
     // Check if Supabase is configured
-    if (!isSupabaseConfigured() || !supabase) {
+    if (!isSupabaseConfigured()) {
       return {
         success: false,
         error: 'Публикация курсов требует настройки Supabase. Курс сохранен локально.',
       }
     }
 
+    // Create server-side Supabase client
+    const supabase = createSupabaseServer()
+
     // Ensure user is authenticated (anonymous or regular)
-    const session = await ensureAuth()
+    const session = await ensureAuthServer()
     const userId = session.user.id
 
     // Validate input
@@ -256,14 +260,15 @@ export async function publishCourse(
  */
 export async function unpublishCourse(slug: string): Promise<PublishCourseResult> {
   try {
-    if (!isSupabaseConfigured() || !supabase) {
+    if (!isSupabaseConfigured()) {
       return {
         success: false,
         error: 'Требуется настройка Supabase',
       }
     }
 
-    const session = await ensureAuth()
+    const supabase = createSupabaseServer()
+    const session = await ensureAuthServer()
     const userId = session.user.id
 
     const { error } = await supabase
@@ -297,14 +302,15 @@ export async function unpublishCourse(slug: string): Promise<PublishCourseResult
  */
 export async function deleteCourse(slug: string): Promise<PublishCourseResult> {
   try {
-    if (!isSupabaseConfigured() || !supabase) {
+    if (!isSupabaseConfigured()) {
       return {
         success: false,
         error: 'Требуется настройка Supabase',
       }
     }
 
-    const session = await ensureAuth()
+    const supabase = createSupabaseServer()
+    const session = await ensureAuthServer()
     const userId = session.user.id
 
     // Get course ID first
