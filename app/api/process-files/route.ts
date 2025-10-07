@@ -178,7 +178,8 @@ export async function POST(request: NextRequest) {
     const combinedChars = combinedText.length
 
     // Check if we need to chunk the text
-    const chunks = chunkText(combinedText, 50000) // Conservative limit for GPT-4o
+    // Keep per-request input well under typical TPM limits (~30k) to prevent 429
+    const chunks = chunkText(combinedText, 20000)
 
     if (chunks.length > 1) {
       console.warn(`Large document detected, split into ${chunks.length} chunks`)
@@ -307,6 +308,8 @@ export async function POST(request: NextRequest) {
       const result = await generateObject({
         model,
         prompt,
+        // keep output tight to avoid extra tokens
+        maxOutputTokens: 1000,
         schema: z.object({
           title: z.string().describe('Название курса на русском языке'),
           description: z.string().describe('Описание курса на русском языке'),
