@@ -16,6 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { AuthButton } from "@/components/AuthButton"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import { createCourseFromPayload } from "@/app/actions/courses"
 
 // Supported file types
 const SUPPORTED_MIME_TYPES = [
@@ -73,6 +76,8 @@ export default function HomePage() {
       : 'chatgpt5'
   )
   const router = useRouter()
+  const { user, isAnonymous } = useAuth()
+  const { toast } = useToast()
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -306,13 +311,59 @@ export default function HomePage() {
       setProcessingMessage("Готово!")
       setStage('done')
 
-      // Store course data for the lessons page
-      localStorage.setItem("courseData", JSON.stringify(data))
+      // Check if user is authenticated (not anonymous)
+      if (user && !isAnonymous) {
+        // Authenticated user: save to database
+        try {
+          setProcessingMessage("Сохранение курса...")
+          const result = await createCourseFromPayload({
+            title: data.title,
+            description: data.description,
+            lessons: data.lessons,
+            sourceFiles: data.sourceFiles?.map((f: any) => ({
+              filename: f.filename,
+              mime: f.mime,
+              text_content: f.text || null,
+              storage_path: null,
+            })),
+          })
 
-      // Small delay to show completion
-      setTimeout(() => {
-        router.push("/outline")
-      }, 500)
+          if (result.success && result.slug) {
+            toast({
+              title: "Курс сохранен",
+              description: "Курс успешно сохранен в ваш профиль",
+            })
+
+            // Small delay to show completion
+            setTimeout(() => {
+              router.push(`/courses/${result.slug}`)
+            }, 500)
+          } else {
+            throw new Error(result.error || "Не удалось сохранить курс")
+          }
+        } catch (saveError) {
+          console.error("Error saving to database:", saveError)
+          toast({
+            title: "Ошибка сохранения",
+            description: "Курс сгенерирован, но не удалось сохранить в базу данных",
+            variant: "destructive",
+          })
+
+          // Fallback to localStorage
+          localStorage.setItem("courseData", JSON.stringify(data))
+          setTimeout(() => {
+            router.push("/outline")
+          }, 500)
+        }
+      } else {
+        // Anonymous user: save to localStorage
+        localStorage.setItem("courseData", JSON.stringify(data))
+
+        // Small delay to show completion
+        setTimeout(() => {
+          router.push("/outline")
+        }, 500)
+      }
     } catch (error) {
       console.error("Error creating course:", error)
       setError(error instanceof Error ? error.message : "Произошла ошибка при создании курса")
