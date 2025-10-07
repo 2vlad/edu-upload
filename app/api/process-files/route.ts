@@ -5,6 +5,10 @@ import { z } from 'zod'
 import { parseFiles, ExtractedFile } from '@/lib/parsers'
 import { ensureAuthServer } from '@/lib/auth-server'
 
+// Force Node.js runtime (not Edge) for file parsing
+export const runtime = 'nodejs'
+export const maxDuration = 60 // Allow up to 60 seconds for AI generation
+
 const openai = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
@@ -300,11 +304,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    log('info', 'Model selected', { provider: selectedProvider, modelId: selectedModelId })
+    log('info', 'Model selected', {
+      provider: selectedProvider,
+      modelId: selectedModelId,
+      envVars: {
+        OPENAI_MODEL_CHAT_GPT_5: process.env.OPENAI_MODEL_CHAT_GPT_5,
+        ANTHROPIC_MODEL_SONNET_4: process.env.ANTHROPIC_MODEL_SONNET_4,
+        DEFAULT_MODEL_CHOICE: process.env.DEFAULT_MODEL_CHOICE,
+        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+        hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+      }
+    })
+
+    log('info', 'Prompt details', {
+      promptLength: prompt.length,
+      promptPreview: prompt.slice(0, 500),
+      isUpdateMode: !!existingCourse,
+    })
 
     // Generate structured course
     let courseStructure: any
     try {
+      log('info', 'Calling generateObject', {
+        provider: selectedProvider,
+        modelId: selectedModelId,
+        maxOutputTokens: 1000,
+      })
+
       const result = await generateObject({
         model,
         prompt,
@@ -348,19 +374,35 @@ export async function POST(request: NextRequest) {
         }),
       })
       courseStructure = result.object
+      log('info', 'generateObject succeeded', {
+        hasTitle: !!result.object?.title,
+        lessonsCount: result.object?.lessons?.length || 0,
+        outlineCount: result.object?.outline?.length || 0,
+      })
     } catch (err: any) {
       // AI SDK may attach useful fields: cause, text, value, usage, response
       log('error', 'generateObject failed', {
         name: err?.name,
         message: err?.message,
+        stack: err?.stack?.split('\n').slice(0, 5).join('\n'),
         cause: err?.cause?.issues || err?.cause || undefined,
         usage: err?.usage || undefined,
+        responseStatus: err?.response?.status || err?.statusCode || undefined,
         responseHeaders: err?.response?.headers || undefined,
         responseModel: err?.response?.modelId || undefined,
+        responseBody: err?.response?.body ? JSON.stringify(err.response.body)?.slice(0, 1000) : undefined,
         textSnippet: typeof err?.text === 'string' ? err.text.slice(0, 600) : undefined,
         valueSample: err?.value ? JSON.stringify(err.value)?.slice(0, 600) : undefined,
+        errorKeys: Object.keys(err || {}),
+        fullError: JSON.stringify(err, null, 2)?.slice(0, 2000),
       })
-      const res = NextResponse.json({ error: 'AI генерация не прошла валидацию', traceId }, { status: 500 })
+      const res = NextResponse.json({
+        error: 'AI генерация не прошла валидацию',
+        details: err?.message || 'Unknown error',
+        provider: selectedProvider,
+        modelId: selectedModelId,
+        traceId
+      }, { status: 500 })
       res.headers.set('X-Trace-Id', traceId)
       return res
     }
