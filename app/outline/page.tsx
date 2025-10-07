@@ -270,6 +270,10 @@ export default function OutlinePage() {
       const response = await fetch('/api/process-files', { method: 'POST', body: formData })
       const payload = await readResponse(response) // read exactly once
       if (!response.ok) {
+        const reason = response.headers.get('X-Auth-Reason')
+        if (response.status === 401 && reason === 'anonymous-signin-disabled') {
+          throw new Error('Загрузка изображений требует входа в систему. Пожалуйста, войдите или отключите изображения в этом запросе.')
+        }
         throw new Error((payload && (payload.error || payload.message)) || 'Ошибка обработки файла')
       }
       const newCourseData = payload

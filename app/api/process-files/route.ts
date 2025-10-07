@@ -93,14 +93,33 @@ export async function POST(request: NextRequest) {
       else if (level === 'warn') console.warn(line, data ?? '')
       else console.error(line, data ?? '')
     }
-    // Ensure user is authenticated (anonymous or regular)
-    await ensureAuth()
-    log('info', 'Auth ensured')
+    // Auth is only required if user uploads images (we need userId for storage path).
+    // For pure document uploads we skip auth to avoid failures when anonymous auth is disabled.
 
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
     const existingCourseJson = formData.get('existingCourse') as string | null
     const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt5')
+
+    const hasImages = files.some(f => f.type?.startsWith('image/'))
+    if (hasImages) {
+      try {
+        await ensureAuth()
+        log('info', 'Auth ensured (images present)')
+      } catch (e: any) {
+        const msg = String(e?.message || e)
+        if (msg.includes('Anonymous sign-ins are disabled')) {
+          log('warn', 'Auth required but anonymous disabled')
+          const res = NextResponse.json({
+            error: 'Загрузка изображений требует авторизации. Войдите в аккаунт или включите anonymous sign-in в Supabase.'
+          }, { status: 401 })
+          res.headers.set('X-Auth-Reason', 'anonymous-signin-disabled')
+          return res
+        }
+        log('error', 'Auth failed', { message: msg })
+        return NextResponse.json({ error: 'Не удалось выполнить авторизацию' }, { status: 401 })
+      }
+    }
 
     log('info', 'Incoming request meta', {
       filesCount: files?.length || 0,
