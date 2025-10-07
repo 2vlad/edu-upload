@@ -63,6 +63,7 @@ export default function HomePage() {
   const stageStartRef = useRef<number | null>(null)
   const uploadBytesRef = useRef({ loaded: 0, total: 0, startedAt: 0, lastTs: 0, lastLoaded: 0, avgBps: 0 })
   const progressTimerRef = useRef<number | null>(null)
+  const advancedAfterUploadRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   // Model selection: "chatgpt5" | "sonnet4"
   const [modelChoice, setModelChoice] = useState<string>(
@@ -234,6 +235,7 @@ export default function HomePage() {
         xhr.responseType = 'json'
 
         uploadBytesRef.current = { loaded: 0, total: 0, startedAt: performance.now(), lastTs: performance.now(), lastLoaded: 0, avgBps: 0 }
+        advancedAfterUploadRef.current = false
 
         xhr.upload.onprogress = (e) => {
           if (!e.lengthComputable) return
@@ -261,6 +263,22 @@ export default function HomePage() {
             : 0
           const remainingAfterUpload = predicted.extract + predicted.analyze + predicted.generate + predicted.finalize
           setEtaMs(remainingUploadMs + remainingAfterUpload)
+
+          // Switch to next stage as soon as upload finishes
+          if (e.loaded >= e.total && !advancedAfterUploadRef.current) {
+            advancedAfterUploadRef.current = true
+            setStage('extract')
+            stageStartRef.current = null
+          }
+        }
+
+        // In some browsers onprogress may not reach 100%; ensure advance
+        xhr.upload.onloadend = () => {
+          if (!advancedAfterUploadRef.current) {
+            advancedAfterUploadRef.current = true
+            setStage('extract')
+            stageStartRef.current = null
+          }
         }
 
         xhr.onload = () => {

@@ -291,14 +291,14 @@ export async function POST(request: NextRequest) {
         schema: z.object({
           title: z.string().describe('Название курса на русском языке'),
           description: z.string().describe('Описание курса на русском языке'),
-          outline: z.array(
-            z.object({
-              lesson_id: z.string().describe('Идентификатор урока для стабильности'),
-              title: z.string().describe('Название урока'),
-              logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
-              bullets: z.array(z.string()).min(3).max(7).describe('Тезисы урока'),
-            })
-          ),
+        outline: z.array(
+          z.object({
+            lesson_id: z.string().describe('Идентификатор урока для стабильности'),
+            title: z.string().describe('Название урока'),
+            logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
+            bullets: z.array(z.string()).min(1).max(7).describe('Тезисы урока'),
+          })
+        ),
           lessons: z.array(
             z.object({
               id: z.string().describe('Уникальный идентификатор урока'),
@@ -306,21 +306,21 @@ export async function POST(request: NextRequest) {
               logline: z.string().optional().describe('Краткий логлайн урока'),
               content: z.string().describe('Содержание урока на русском языке (300-400 слов)'),
               objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
-              guiding_questions: z
-                .array(z.string())
-                .min(3)
-                .max(8)
-                .describe('Наводящие вопросы для расширения материала'),
-              expansion_tips: z
-                .array(z.string())
-                .min(3)
-                .max(6)
-                .describe('Практические советы по расширению контента'),
-              examples_to_add: z
-                .array(z.string())
-                .min(2)
-                .max(5)
-                .describe('Идеи примеров и кейсов'),
+            guiding_questions: z
+              .array(z.string())
+              .min(1)
+              .max(8)
+              .describe('Наводящие вопросы для расширения материала'),
+            expansion_tips: z
+              .array(z.string())
+              .min(1)
+              .max(6)
+              .describe('Практические советы по расширению контента'),
+            examples_to_add: z
+              .array(z.string())
+              .min(1)
+              .max(5)
+              .describe('Идеи примеров и кейсов'),
             })
           ),
         }),
@@ -341,6 +341,52 @@ export async function POST(request: NextRequest) {
       const res = NextResponse.json({ error: 'AI генерация не прошла валидацию', traceId }, { status: 500 })
       res.headers.set('X-Trace-Id', traceId)
       return res
+    }
+
+    // Normalize generated structure to ensure minimum helpful content
+    const ensureMinItems = (arr: string[] | undefined, min: number, fillers: string[]): string[] => {
+      const base = Array.isArray(arr) ? arr.filter(Boolean).map(s => String(s).trim()).filter(Boolean) : []
+      let i = 0
+      while (base.length < min) {
+        base.push(fillers[i % fillers.length])
+        i++
+      }
+      return base
+    }
+
+    if (courseStructure?.lessons?.length) {
+      courseStructure.lessons = courseStructure.lessons.map((l: any) => {
+        const title = l.title || 'Урок'
+        return {
+          ...l,
+          guiding_questions: ensureMinItems(
+            l.guiding_questions,
+            3,
+            [
+              `Какие ключевые выводы из урока «${title}» важно подчеркнуть?`,
+              `Как применить идеи из урока «${title}» на практике?`,
+              `Какие шаги сделать далее после урока «${title}»?`,
+            ]
+          ),
+          expansion_tips: ensureMinItems(
+            l.expansion_tips,
+            3,
+            [
+              'Добавьте короткий практический пример/кейс.',
+              'Сделайте чек-лист шагов для применения.',
+              'Вставьте мини-упражнение для закрепления.',
+            ]
+          ),
+          examples_to_add: ensureMinItems(
+            l.examples_to_add,
+            2,
+            [
+              'Кейс из личной практики.',
+              'Пример из индустрии/компании.',
+            ]
+          ),
+        }
+      })
     }
 
     // Return course structure along with extracted file info

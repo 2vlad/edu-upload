@@ -85,7 +85,8 @@ export function CircularProgress({
   const circumference = 2 * Math.PI * config.radius
   const clamped = Math.max(0, Math.min(100, progress))
   const strokeDashoffset = circumference - (clamped / 100) * circumference
-  const angle = (clamped / 100) * 2 * Math.PI - Math.PI / 2
+  // SVG is rotated -90deg, so we do not shift by -PI/2 here
+  const angle = (clamped / 100) * 2 * Math.PI
   const headX = config.size / 2 + Math.cos(angle) * config.radius
   const headY = config.size / 2 + Math.sin(angle) * config.radius
 
