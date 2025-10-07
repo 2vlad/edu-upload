@@ -228,10 +228,10 @@ export async function POST(request: NextRequest) {
     } else {
       // Create mode - new course
       prompt = `
-        Преобразуй следующий текст из документов в структурированный образовательный курс с 3-10 уроками.
+        Преобразуй следующий текст из документов в структурированный образовательный курс с 3-6 уроками.
 
         Каждый урок должен:
-        - Содержать 300-400 слов (примерно одна страница A4)
+        - Содержать 200-300 слов (краткий, но содержательный)
         - Следовать логической последовательности
         - Быть увлекательным и образовательным
         - Включать практические примеры, где это возможно
@@ -240,9 +240,9 @@ export async function POST(request: NextRequest) {
         ДЛЯ КАЖДОГО УРОКА также создай:
         - Краткий логлайн (1-2 предложения о чём урок)
         - 3-5 тезисов-буллетов (основные идеи урока)
-        - 5-8 наводящих вопросов, которые помогут автору расширить материал
-        - 3-6 практических советов по расширению контента
-        - 2-5 идей примеров или кейсов для иллюстрации
+        - 4-6 наводящих вопросов, которые помогут автору расширить материал
+        - 3-4 практических советов по расширению контента
+        - 2-3 идей примеров или кейсов для иллюстрации
 
         ВАЖНО: Используй ТОЛЬКО информацию из предоставленного текста. Не добавляй информацию, которой нет в исходном материале.
         Создавай уроки на основе реального содержания документов.
@@ -328,14 +328,14 @@ export async function POST(request: NextRequest) {
       log('info', 'Calling generateObject', {
         provider: selectedProvider,
         modelId: selectedModelId,
-        maxOutputTokens: 1000,
+        maxOutputTokens: 8000,
       })
 
       const result = await generateObject({
         model,
         prompt,
-        // keep output tight to avoid extra tokens
-        maxOutputTokens: 1000,
+        // Increased to 8000 to accommodate full course generation with multiple lessons
+        maxOutputTokens: 8000,
         schema: z.object({
           title: z.string().describe('Название курса на русском языке'),
           description: z.string().describe('Описание курса на русском языке'),
@@ -352,22 +352,22 @@ export async function POST(request: NextRequest) {
               id: z.string().describe('Уникальный идентификатор урока'),
               title: z.string().describe('Название урока на русском языке'),
               logline: z.string().optional().describe('Краткий логлайн урока'),
-              content: z.string().describe('Содержание урока на русском языке (300-400 слов)'),
+              content: z.string().describe('Содержание урока на русском языке (200-300 слов)'),
               objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
             guiding_questions: z
               .array(z.string())
-              .min(1)
-              .max(8)
+              .min(3)
+              .max(6)
               .describe('Наводящие вопросы для расширения материала'),
             expansion_tips: z
               .array(z.string())
-              .min(1)
-              .max(6)
+              .min(3)
+              .max(4)
               .describe('Практические советы по расширению контента'),
             examples_to_add: z
               .array(z.string())
-              .min(1)
-              .max(5)
+              .min(2)
+              .max(3)
               .describe('Идеи примеров и кейсов'),
             })
           ),
@@ -396,6 +396,21 @@ export async function POST(request: NextRequest) {
         errorKeys: Object.keys(err || {}),
         fullError: JSON.stringify(err, null, 2)?.slice(0, 2000),
       })
+
+      // Check for max_output_tokens error
+      const incompletReason = err?.response?.body?.incomplete_details?.reason
+      if (err?.name === 'AI_NoObjectGeneratedError' && incompletReason === 'max_output_tokens') {
+        const res = NextResponse.json({
+          error: 'model_output_truncated',
+          message: 'Модель не успела сгенерировать весь курс (превышен лимит токенов). Попробуйте уменьшить количество уроков или загрузите меньший документ.',
+          provider: selectedProvider,
+          modelId: selectedModelId,
+          traceId
+        }, { status: 422 })
+        res.headers.set('X-Trace-Id', traceId)
+        return res
+      }
+
       const res = NextResponse.json({
         error: 'AI генерация не прошла валидацию',
         details: err?.message || 'Unknown error',
