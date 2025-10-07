@@ -258,6 +258,61 @@ export async function getCourse(
 }
 
 /**
+ * Get published course by slug (for public viewing)
+ */
+export async function getCourseBySlug(
+  slug: string
+): Promise<{
+  success: boolean
+  course?: CourseWithLessons
+  error?: string
+}> {
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: 'Supabase not configured' }
+  }
+
+  try {
+    const supabase = createSupabaseServer()
+
+    // Fetch published course by slug
+    const { data: course, error: courseError } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('slug', slug)
+      .eq('published', true)
+      .single()
+
+    if (courseError) {
+      console.error('Error fetching course:', courseError)
+      return { success: false, error: 'Course not found' }
+    }
+
+    // Fetch lessons
+    const { data: lessons, error: lessonsError } = await supabase
+      .from('lessons')
+      .select('*')
+      .eq('course_id', course.id)
+      .order('order_index', { ascending: true })
+
+    if (lessonsError) {
+      console.error('Error fetching lessons:', lessonsError)
+      return { success: false, error: lessonsError.message }
+    }
+
+    return {
+      success: true,
+      course: { ...course, lessons: lessons || [] },
+    }
+  } catch (error) {
+    console.error('Unexpected error fetching course:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
  * Update course metadata (title, description, published status)
  */
 export async function updateCourse(
