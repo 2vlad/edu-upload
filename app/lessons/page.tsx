@@ -26,6 +26,8 @@ import { markAsEdited } from "@/lib/types/course"
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient"
 import { publishCourse } from "@/app/actions/publish-course"
 import { useToast } from "@/hooks/use-toast"
+import { AuthButton } from "@/components/AuthButton"
+import { useAuth } from "@/lib/auth-context"
 
 interface Lesson {
   id: string
@@ -62,6 +64,7 @@ export default function LessonsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const { toast } = useToast()
+  const { isAnonymous, openAuthDialog } = useAuth()
 
   useEffect(() => {
     const stored = localStorage.getItem("courseData")
@@ -83,6 +86,17 @@ export default function LessonsPage() {
 
   const handlePublish = async () => {
     if (!courseData) return
+
+    // Проверяем аутентификацию для анонимных пользователей
+    if (isAnonymous) {
+      toast({
+        title: "Требуется вход",
+        description: "Войдите в аккаунт, чтобы опубликовать курс и получить доступ с других устройств.",
+        variant: "default",
+      })
+      openAuthDialog()
+      return
+    }
 
     // Save any pending edits first
     if (isEditing) {
@@ -220,7 +234,22 @@ export default function LessonsPage() {
 
       // Check if Supabase is configured
       if (!isSupabaseConfigured() || !supabase) {
-        alert('Загрузка изображений требует настройки Supabase. Пожалуйста, настройте Supabase Storage для использования этой функции.')
+        toast({
+          title: "Загрузка недоступна",
+          description: "Загрузка изображений требует настройки Supabase Storage.",
+          variant: "destructive",
+        })
+        return null
+      }
+
+      // Check authentication for anonymous users
+      if (isAnonymous) {
+        toast({
+          title: "Требуется вход",
+          description: "Войдите в аккаунт для загрузки изображений.",
+          variant: "default",
+        })
+        openAuthDialog()
         return null
       }
 
@@ -374,6 +403,7 @@ export default function LessonsPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <AuthButton />
               <Button
                 onClick={handlePublish}
                 disabled={isPublishing}

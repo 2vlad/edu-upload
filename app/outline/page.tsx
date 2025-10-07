@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight, Plus } from "lucide-react"
 import { CourseUpdatePreview } from "@/components/CourseUpdatePreview"
 import { mergeCourseUpdates, type CourseChanges } from "@/lib/courseUpdates"
+import { AuthButton } from "@/components/AuthButton"
 
 interface Lesson {
   id: string
@@ -374,6 +375,9 @@ export default function OutlinePage() {
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h1 className="text-sm font-medium text-muted-foreground">План курса</h1>
+            <div className="ml-auto">
+              <AuthButton />
+            </div>
           </div>
 
           {/* Course Title */}

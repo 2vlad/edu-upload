@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { AuthButton } from "@/components/AuthButton"
 
 // Supported file types
 const SUPPORTED_MIME_TYPES = [
@@ -323,6 +324,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
+      {/* Auth Button */}
+      <div className="absolute top-6 right-6 z-10">
+        <AuthButton />
+      </div>
+
       {/* Loading Overlay */}
       {isProcessing && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
