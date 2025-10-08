@@ -15,6 +15,11 @@ import {
 
 export function AuthButton() {
   const { user, isLoading, isAnonymous, openAuthDialog, signOut } = useAuth()
+  const [open, setOpen] = React.useState(false)
+  React.useEffect(() => {
+    // minimal runtime log to diagnose dropdown state
+    console.debug('[AuthButton] mount', { hasUser: !!user, isAnonymous })
+  }, [])
 
   if (isLoading) {
     return (
@@ -46,8 +51,8 @@ export function AuthButton() {
 
   // Logged in
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <DropdownMenu open={open} onOpenChange={(v) => { setOpen(v); console.debug('[AuthButton] onOpenChange', v) }}>
+      <DropdownMenuTrigger asChild onPointerDown={() => console.debug('[AuthButton] trigger pointerdown')}>
         <Button variant="outline" className="rounded-[25px]" size="sm">
           <User className="w-4 h-4 mr-2" />
           {user.email}

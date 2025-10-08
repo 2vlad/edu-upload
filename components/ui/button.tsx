@@ -35,28 +35,23 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot : "button"
-  // Ensure buttons default to type="button" to avoid unwanted form submits
-  const defaultType = (props as any)?.type ?? 'button'
+const Button = React.forwardRef<HTMLButtonElement, React.ComponentProps<"button"> &
+  VariantProps<typeof buttonVariants> & { asChild?: boolean }>(
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    const defaultType = (props as any)?.type ?? 'button'
 
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...(!asChild ? { type: defaultType } : {})}
-      {...props}
-    />
-  )
-}
+    return (
+      <Comp
+        ref={ref}
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...(!asChild ? { type: defaultType } : {})}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
 
 export { Button, buttonVariants }
