@@ -386,7 +386,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
       {/* Auth Button */}
-      <div className="absolute top-6 right-6 z-10">
+      <div className="absolute top-6 right-6 z-[60]">
         <AuthButton />
       </div>
 
