@@ -294,7 +294,17 @@ export default function HomePage() {
           }
           try {
             const json = typeof xhr.response === 'string' ? JSON.parse(xhr.response) : xhr.response
-            if (xhr.status >= 200 && xhr.status < 300) resolve(json)
+            if (xhr.status >= 200 && xhr.status < 300) {
+              // Log model metadata to verify correct model was used
+              if (json?.metadata?.model) {
+                console.log('✅ Model used:', {
+                  requested: json.metadata.model.choice,
+                  provider: json.metadata.model.provider,
+                  modelId: json.metadata.model.modelId
+                })
+              }
+              resolve(json)
+            }
             else reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
           } catch (e) {
             if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response)
