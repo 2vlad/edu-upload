@@ -72,8 +72,8 @@ export default function HomePage() {
   // Model selection: "chatgpt5" | "sonnet4"
   const [modelChoice, setModelChoice] = useState<string>(
     typeof window !== 'undefined'
-      ? localStorage.getItem('preferredModel') || (process.env.NEXT_PUBLIC_DEFAULT_AI_MODEL || 'chatgpt5')
-      : 'chatgpt5'
+      ? localStorage.getItem('preferredModel') || (process.env.NEXT_PUBLIC_DEFAULT_AI_MODEL || 'chatgpt4o')
+      : 'chatgpt4o'
   )
   const router = useRouter()
   const { user, isAnonymous } = useAuth()
