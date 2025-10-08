@@ -4,10 +4,9 @@ import type React from "react"
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File, BookOpen } from "lucide-react"
+import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
 import {
   Select,
@@ -386,14 +385,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6 relative">
-      {/* Header Buttons */}
-      <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
-        <Link href="/courses">
-          <Button variant="outline" className="rounded-[30px]">
-            <BookOpen className="w-4 h-4 mr-2" />
-            Мои курсы
-          </Button>
-        </Link>
+      {/* Auth Button */}
+      <div className="absolute top-6 right-6 z-10">
         <AuthButton />
       </div>
 

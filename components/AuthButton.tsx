@@ -3,7 +3,8 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
-import { LogIn, LogOut, User } from "lucide-react"
+import { LogIn, LogOut, User, Plus, History } from "lucide-react"
+import Link from "next/link"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +60,19 @@ export function AuthButton() {
             {user.is_anonymous ? "Анонимный пользователь" : "Зарегистрирован"}
           </p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/">
+            <Plus className="w-4 h-4 mr-2" />
+            Сгенерировать курс
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link href="/courses">
+            <History className="w-4 h-4 mr-2" />
+            История
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="cursor-pointer">
           <LogOut className="w-4 h-4 mr-2" />
