@@ -104,33 +104,14 @@ export default function OutlinePage() {
     setIsEditingDescription(false)
   }
 
-  // Extract bullets from lesson objectives or outline
+  // Extract bullets from lesson objectives
   const getBullets = (lesson: Lesson, index: number): string[] => {
-    // Try to get bullets from outline first
-    const outlineItem = courseData?.outline?.find(
-      (item) => item.lesson_id === lesson.id || item.title === lesson.title
-    )
-
-    if (outlineItem?.bullets && outlineItem.bullets.length > 0) {
-      return outlineItem.bullets.slice(0, 5)
-    }
-
-    // Fallback to objectives
     return lesson.objectives.slice(0, 5)
   }
 
-  // Extract logline from lesson or outline
+  // Extract logline from lesson
   const getLogline = (lesson: Lesson, index: number): string => {
-    // Try to get logline from outline first
-    const outlineItem = courseData?.outline?.find(
-      (item) => item.lesson_id === lesson.id || item.title === lesson.title
-    )
-
-    if (outlineItem?.logline) {
-      return outlineItem.logline
-    }
-
-    // Try lesson.logline
+    // Try lesson.logline first
     if (lesson.logline) {
       return lesson.logline
     }
