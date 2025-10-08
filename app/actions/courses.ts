@@ -179,18 +179,25 @@ export async function getMyCourses(): Promise<{
     const session = await ensureAuthServer()
     const userId = session.user.id
 
-    const { data: courses, error } = await supabase
-      .from('courses')
-      .select('*')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
+    // Strategy: union собственных курсов (все статусы) + всех опубликованных курсов любых пользователей
+    const [own, published] = await Promise.all([
+      supabase.from('courses').select('*').eq('user_id', userId),
+      supabase.from('courses').select('*').eq('published', true),
+    ])
 
-    if (error) {
-      console.error('Error fetching courses:', error)
-      return { success: false, error: error.message }
+    const ownList = own.data || []
+    const pubList = (published.data || []).filter((c) => !ownList.find((o) => o.id === c.id))
+    const merged = [...ownList, ...pubList].sort((a, b) => (
+      (b.updated_at || '').localeCompare(a.updated_at || '')
+    ))
+
+    if (own.error || published.error) {
+      const err = own.error || published.error
+      console.error('Error fetching courses:', err)
+      return { success: false, error: err.message }
     }
 
-    return { success: true, courses: courses || [] }
+    return { success: true, courses: merged }
   } catch (error) {
     console.error('Unexpected error fetching courses:', error)
     return {

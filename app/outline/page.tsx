@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight, Plus } from "lucide-react"
+import { ArrowLeft, Edit2, Save, X, FileText, Upload, RefreshCw, ChevronRight, Plus, CheckCircle } from "lucide-react"
 import { CourseUpdatePreview } from "@/components/CourseUpdatePreview"
 import { mergeCourseUpdates, type CourseChanges } from "@/lib/courseUpdates"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
+import { publishCourse } from "@/app/actions/publish-course"
 import { AuthButton } from "@/components/AuthButton"
 
 interface Lesson {
@@ -55,6 +58,9 @@ export default function OutlinePage() {
   const dragLessonIdRef = useRef<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const { isAnonymous, openAuthDialog } = useAuth()
+  const { toast } = useToast()
+  const [isPublishing, setIsPublishing] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem("courseData")
@@ -182,6 +188,36 @@ export default function OutlinePage() {
 
   const handleProceedToLessons = () => {
     router.push("/lessons")
+  }
+
+  const handlePublish = async () => {
+    if (!courseData) return
+    if (isAnonymous) {
+      toast({ title: 'Требуется вход', description: 'Войдите в аккаунт, чтобы опубликовать курс', variant: 'default' })
+      openAuthDialog()
+      return
+    }
+    setIsPublishing(true)
+    try {
+      const result = await publishCourse({
+        title: courseData.title,
+        description: courseData.description,
+        lessons: courseData.lessons,
+      })
+      if (result.success && result.slug) {
+        toast({ title: 'Курс опубликован', description: 'Курс сохранен в ваш профиль' })
+        localStorage.setItem('publishedCourseSlug', result.slug)
+        localStorage.setItem('publishedCourse', JSON.stringify(courseData))
+        router.push(`/course?slug=${result.slug}`)
+      } else {
+        throw new Error(result.error || 'Не удалось опубликовать курс')
+      }
+    } catch (e) {
+      console.error('Publish from outline failed', e)
+      toast({ title: 'Ошибка публикации', description: e instanceof Error ? e.message : 'Не удалось опубликовать курс', variant: 'destructive' })
+    } finally {
+      setIsPublishing(false)
+    }
   }
 
   const handleAddManualLesson = () => {
@@ -484,10 +520,20 @@ export default function OutlinePage() {
               <RefreshCw className="w-4 h-4 mr-2" />
               Обновить план
             </Button>
-            <Button onClick={handleProceedToLessons} className="rounded-[30px] ml-auto">
-              Редактировать уроки
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="ml-auto flex gap-3">
+              <Button
+                onClick={handlePublish}
+                disabled={isPublishing}
+                className="rounded-[30px]"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                {isPublishing ? 'Публикация...' : 'Опубликовать курс'}
+              </Button>
+              <Button onClick={handleProceedToLessons} className="rounded-[30px]">
+                Редактировать уроки
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>

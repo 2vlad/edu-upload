@@ -72,7 +72,7 @@ export function AuthButton() {
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/courses">
             <History className="w-4 h-4 mr-2" />
-            История
+            Курсы
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
