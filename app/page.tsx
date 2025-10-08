@@ -295,7 +295,7 @@ export default function HomePage() {
           try {
             const json = typeof xhr.response === 'string' ? JSON.parse(xhr.response) : xhr.response
             if (xhr.status >= 200 && xhr.status < 300) resolve(json)
-            else reject(new Error(json?.error || `HTTP ${xhr.status}`))
+            else reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
           } catch (e) {
             if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response)
             else reject(new Error(`HTTP ${xhr.status}`))
