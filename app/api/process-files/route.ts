@@ -329,13 +329,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    log('info', 'Model selected', {
-      provider: selectedProvider,
-      modelId: selectedModelId,
+    log('info', 'Final model configuration', {
+      requestedChoice: modelChoice,
+      selectedProvider,
+      selectedModelId,
       envVars: {
-        OPENAI_MODEL_CHAT_GPT_5: process.env.OPENAI_MODEL_CHAT_GPT_5,
+        OPENAI_MODEL_GPT_4O: process.env.OPENAI_MODEL_GPT_4O,
+        OPENAI_MODEL_GPT_5: process.env.OPENAI_MODEL_GPT_5,
         ANTHROPIC_MODEL_SONNET_4: process.env.ANTHROPIC_MODEL_SONNET_4,
-        DEFAULT_MODEL_CHOICE: process.env.DEFAULT_MODEL_CHOICE,
         hasOpenAIKey: !!process.env.OPENAI_API_KEY,
         hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
       }
