@@ -1,4 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
+
+// Ensure Node runtime and allow longer processing when generating courses
+export const runtime = 'nodejs'
+export const maxDuration = 60
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
@@ -325,17 +329,22 @@ export async function POST(request: NextRequest) {
     // Generate structured course
     let courseStructure: any
     try {
+      // Choose output budget; GPT‑5 needs larger budget due to reasoning tokens
+      const resolvedMaxOutput = Number(
+        process.env.OPENAI_MAX_OUTPUT_TOKENS || (selectedModelId?.startsWith('gpt-5') ? 7000 : 3000)
+      )
+
       log('info', 'Calling generateObject', {
         provider: selectedProvider,
         modelId: selectedModelId,
-        maxOutputTokens: 8000,
+        maxOutputTokens: resolvedMaxOutput,
       })
 
       const result = await generateObject({
         model,
         prompt,
-        // Increased to 8000 to accommodate full course generation with multiple lessons
-        maxOutputTokens: 8000,
+        maxOutputTokens: resolvedMaxOutput,
+        reasoning: { effort: 'low' },
         schema: z.object({
           title: z.string().describe('Название курса на русском языке'),
           description: z.string().describe('Описание курса на русском языке'),
