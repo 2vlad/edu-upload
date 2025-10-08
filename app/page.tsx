@@ -398,6 +398,7 @@ export default function HomePage() {
                   size="lg"
                   progress={processingProgress}
                   label={processingMessage}
+                  indeterminate
                 />
                 {processingProgress === 100 && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -409,9 +410,6 @@ export default function HomePage() {
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
                   {files.length} {files.length === 1 ? 'файл' : 'файла'} обрабатывается
-                </p>
-                <p className="text-xs text-muted-foreground/70">
-                  {etaMs !== null ? `Осталось ≈ ${formatEta(etaMs)}` : 'Оценка времени...'}
                 </p>
               </div>
             </div>
@@ -442,8 +440,9 @@ export default function HomePage() {
                 <SelectValue placeholder="Выберите модель" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="chatgpt5">ChatGPT 5 (OpenAI)</SelectItem>
-                <SelectItem value="sonnet4">Sonnet 4 (Anthropic)</SelectItem>
+                <SelectItem value="chatgpt4o">ChatGPT-4o (OpenAI)</SelectItem>
+                <SelectItem value="chatgpt5">ChatGPT-5 (OpenAI)</SelectItem>
+                <SelectItem value="sonnet4">Claude Sonnet 4 (Anthropic)</SelectItem>
               </SelectContent>
             </Select>
           </div>

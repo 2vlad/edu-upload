@@ -66,6 +66,7 @@ interface CircularProgressProps {
   progress?: number
   label?: string
   subtle?: boolean // lower-contrast style
+  indeterminate?: boolean // animate head around ring, no arc fill
 }
 
 export function CircularProgress({
@@ -74,6 +75,7 @@ export function CircularProgress({
   progress = 0,
   label,
   subtle = false,
+  indeterminate = false,
 }: CircularProgressProps) {
   const sizeConfig = {
     sm: { size: 80, strokeWidth: 6, radius: 35 },
@@ -85,7 +87,7 @@ export function CircularProgress({
   const circumference = 2 * Math.PI * config.radius
   const clamped = Math.max(0, Math.min(100, progress))
   const strokeDashoffset = circumference - (clamped / 100) * circumference
-  // SVG is rotated -90deg, so we do not shift by -PI/2 here
+  // position of head for determinate mode
   const angle = (clamped / 100) * 2 * Math.PI
   const headX = config.size / 2 + Math.cos(angle) * config.radius
   const headY = config.size / 2 + Math.sin(angle) * config.radius
@@ -115,27 +117,48 @@ export function CircularProgress({
             className={cn(subtle ? "text-muted/20" : "text-muted/25")}
           />
           
-          {/* Progress circle */}
-          <circle
-            cx={config.size / 2}
-            cy={config.size / 2}
-            r={config.radius}
-            stroke="url(#tm-progress-grad)"
-            strokeWidth={config.strokeWidth}
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            className="text-primary transition-[stroke-dashoffset] duration-600 ease-[cubic-bezier(.22,1,.36,1)]"
-            strokeLinecap="round"
-          />
-          {/* Head dot (subtle, follows the arc) */}
-          <circle
-            cx={headX}
-            cy={headY}
-            r={Math.max(2, config.strokeWidth * 0.45)}
-            fill="currentColor"
-            className={cn("text-primary transition-all duration-600 ease-[cubic-bezier(.22,1,.36,1)]", subtle && "opacity-70")}
-          />
+          {/* Determinate arc or indeterminate spinner */}
+          {!indeterminate ? (
+            <>
+              <circle
+                cx={config.size / 2}
+                cy={config.size / 2}
+                r={config.radius}
+                stroke="url(#tm-progress-grad)"
+                strokeWidth={config.strokeWidth}
+                fill="none"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                className="text-primary transition-[stroke-dashoffset] duration-600 ease-[cubic-bezier(.22,1,.36,1)]"
+                strokeLinecap="round"
+              />
+              <circle
+                cx={headX}
+                cy={headY}
+                r={Math.max(2, config.strokeWidth * 0.45)}
+                fill="currentColor"
+                className={cn("text-primary transition-all duration-600 ease-[cubic-bezier(.22,1,.36,1)]", subtle && "opacity-70")}
+              />
+            </>
+          ) : (
+            // Indeterminate: rotate a small arc + dot continuously
+            <g className="origin-center animate-spin" style={{ animationDuration: '1.2s' }}>
+              <path
+                d={`M ${config.size/2} ${config.size/2 - config.radius} a ${config.radius} ${config.radius} 0 0 1 0 ${config.strokeWidth}`}
+                stroke="url(#tm-progress-grad)"
+                strokeWidth={config.strokeWidth}
+                fill="none"
+                strokeLinecap="round"
+              />
+              <circle
+                cx={config.size/2}
+                cy={config.size/2 - config.radius}
+                r={Math.max(2, config.strokeWidth * 0.45)}
+                fill="currentColor"
+                className={cn("text-primary", subtle && "opacity-70")}
+              />
+            </g>
+          )}
         </svg>
         
         {/* Center content */}
@@ -143,7 +166,7 @@ export function CircularProgress({
           <span className="text-2xl font-semibold tabular-nums">
             {Math.round(clamped)}%
           </span>
-        </div>
+      </div>
       </div>
       
       {label && (

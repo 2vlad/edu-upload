@@ -256,11 +256,34 @@ export async function POST(request: NextRequest) {
 
     // Resolve model based on selection
     let selectedProvider: 'openai' | 'anthropic' = 'openai'
-    let selectedModelId: string = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
-    let model: any = openai(selectedModelId)
+    let selectedModelId: string = 'gpt-4o'
+    let model: any
 
-    if (modelChoice === 'sonnet4') {
-      // Try Anthropic dynamically; if unavailable, fallback to OpenAI
+    log('info', 'Model selection requested', {
+      modelChoice,
+      availableEnvVars: {
+        hasGPT4o: !!process.env.OPENAI_MODEL_GPT_4O,
+        hasGPT5: !!process.env.OPENAI_MODEL_GPT_5,
+        hasSonnet4: !!process.env.ANTHROPIC_MODEL_SONNET_4,
+        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+        hasAnthropicKey: !!process.env.ANTHROPIC_API_KEY,
+      }
+    })
+
+    if (modelChoice === 'chatgpt4o') {
+      // ChatGPT-4o (fast, reliable)
+      selectedProvider = 'openai'
+      selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+      model = openai(selectedModelId)
+      log('info', 'Selected ChatGPT-4o', { modelId: selectedModelId })
+    } else if (modelChoice === 'chatgpt5') {
+      // ChatGPT-5 (with reasoning)
+      selectedProvider = 'openai'
+      selectedModelId = process.env.OPENAI_MODEL_GPT_5 || 'gpt-5'
+      model = openai(selectedModelId)
+      log('info', 'Selected ChatGPT-5', { modelId: selectedModelId })
+    } else if (modelChoice === 'sonnet4') {
+      // Claude Sonnet 4 (Anthropic)
       if (process.env.ANTHROPIC_API_KEY) {
         try {
           const anthropicPkg = ['@ai-sdk','/anthropic'].join('')
@@ -269,24 +292,26 @@ export async function POST(request: NextRequest) {
           const createAnthropic = (mod as any).createAnthropic
           const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
           selectedProvider = 'anthropic'
-          selectedModelId = process.env.ANTHROPIC_MODEL_SONNET_4 || 'claude-3-5-sonnet-20241022'
+          selectedModelId = process.env.ANTHROPIC_MODEL_SONNET_4 || 'claude-sonnet-4-20250514'
           model = anthropic(selectedModelId)
+          log('info', 'Selected Claude Sonnet 4', { modelId: selectedModelId })
         } catch (e) {
-          console.warn('Anthropic SDK not available, falling back to OpenAI:', e)
+          log('warn', 'Anthropic SDK not available, falling back to GPT-4o', { error: String(e) })
           selectedProvider = 'openai'
-          selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+          selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
           model = openai(selectedModelId)
         }
       } else {
-        console.warn('ANTHROPIC_API_KEY not set; using OpenAI fallback')
+        log('warn', 'ANTHROPIC_API_KEY not set; using GPT-4o fallback')
         selectedProvider = 'openai'
-        selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+        selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
         model = openai(selectedModelId)
       }
     } else {
-      // Explicit ChatGPT 5 choice → OpenAI
+      // Default fallback to GPT-4o
+      log('warn', 'Unknown model choice, defaulting to GPT-4o', { modelChoice })
       selectedProvider = 'openai'
-      selectedModelId = process.env.OPENAI_MODEL_CHAT_GPT_5 || 'gpt-4o'
+      selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
       model = openai(selectedModelId)
     }
 
