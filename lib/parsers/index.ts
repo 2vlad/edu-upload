@@ -6,13 +6,8 @@ import { parseText } from './text'
 import { parseHTML } from './html'
 import { handleImage } from './image'
 import { validateFile } from './validation'
-import {
-  ExtractedFile,
-  ParserError,
-  SUPPORTED_DOCUMENT_TYPES,
-  SUPPORTED_IMAGE_TYPES,
-  FILE_SIZE_LIMITS,
-} from './types'
+import { ParserError, SUPPORTED_DOCUMENT_TYPES, SUPPORTED_IMAGE_TYPES, FILE_SIZE_LIMITS } from './types'
+import type { ExtractedFile } from './types'
 
 /**
  * Parse a file based on its MIME type
@@ -105,11 +100,5 @@ export async function parseFiles(
 }
 
 // Re-export types and utilities
-export {
-  ExtractedFile,
-  ParserError,
-  SUPPORTED_DOCUMENT_TYPES,
-  SUPPORTED_IMAGE_TYPES,
-  FILE_SIZE_LIMITS,
-  validateFile,
-}
+export type { ExtractedFile } from './types'
+export { ParserError, SUPPORTED_DOCUMENT_TYPES, SUPPORTED_IMAGE_TYPES, FILE_SIZE_LIMITS, validateFile }
