@@ -141,8 +141,14 @@ export function CircularProgress({
               />
             </>
           ) : (
-            // Indeterminate: rotate a small arc + dot continuously
-            <g className="origin-center animate-spin" style={{ animationDuration: '1.2s' }}>
+            // Indeterminate: rotate a small arc + dot continuously with easing
+            <g
+              className="origin-center"
+              style={{
+                animation: 'spin 1.35s cubic-bezier(.22,1,.36,1) infinite',
+                willChange: 'transform',
+              }}
+            >
               <path
                 d={`M ${config.size/2} ${config.size/2 - config.radius} a ${config.radius} ${config.radius} 0 0 1 0 ${config.strokeWidth}`}
                 stroke="url(#tm-progress-grad)"

@@ -228,29 +228,18 @@ export async function POST(request: NextRequest) {
     } else {
       // Create mode - new course
       prompt = `
-        Преобразуй следующий текст из документов в структурированный образовательный курс с 3-6 уроками.
+        Создай образовательный курс из текста ниже. Курс должен содержать 3-5 уроков.
 
-        Каждый урок должен:
-        - Содержать 200-300 слов (краткий, но содержательный)
-        - Следовать логической последовательности
-        - Быть увлекательным и образовательным
-        - Включать практические примеры, где это возможно
-        - Иметь четкие учебные цели
+        Каждый урок:
+        - 150-200 слов (краткий и содержательный)
+        - Логическая последовательность
+        - Практические примеры
+        - 2-3 учебные цели
 
-        ДЛЯ КАЖДОГО УРОКА также создай:
-        - Краткий логлайн (1-2 предложения о чём урок)
-        - 3-5 тезисов-буллетов (основные идеи урока)
-        - 4-6 наводящих вопросов, которые помогут автору расширить материал
-        - 3-4 практических советов по расширению контента
-        - 2-3 идей примеров или кейсов для иллюстрации
+        Используй ТОЛЬКО информацию из текста. Не добавляй информацию извне.
 
-        ВАЖНО: Используй ТОЛЬКО информацию из предоставленного текста. Не добавляй информацию, которой нет в исходном материале.
-        Создавай уроки на основе реального содержания документов.
-
-        Текст для преобразования:
+        Текст:
         ${textForGeneration}
-
-        Ответ должен быть на русском языке.
       `
     }
 
@@ -351,9 +340,9 @@ export async function POST(request: NextRequest) {
     // Generate structured course
     let courseStructure: any
     try {
-      // Choose output budget; GPT-5 slightly higher for complex courses
+      // Choose output budget; increased for reliable course generation
       const resolvedMaxOutput = Number(
-        process.env.OPENAI_MAX_OUTPUT_TOKENS || (selectedModelId?.startsWith('gpt-5') ? 4000 : 3000)
+        process.env.OPENAI_MAX_OUTPUT_TOKENS || (selectedModelId?.startsWith('gpt-5') ? 6000 : 4000)
       )
 
       log('info', 'Calling generateObject', {
@@ -366,37 +355,26 @@ export async function POST(request: NextRequest) {
         model,
         prompt,
         maxOutputTokens: resolvedMaxOutput,
-        // Keep schema permissive; we'll normalize after
         schema: z.object({
-          title: z.string().describe('Название курса на русском языке'),
-          description: z.string().describe('Описание курса на русском языке'),
-        outline: z.array(
-          z.object({
-            lesson_id: z.string().describe('Идентификатор урока для стабильности'),
-            title: z.string().describe('Название урока'),
-            logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
-            bullets: z.array(z.string()).max(7).describe('Тезисы урока'),
-          })
-        ),
+          title: z.string().describe('Название курса'),
+          description: z.string().describe('Описание курса'),
           lessons: z.array(
-          z.object({
-            id: z.string().describe('Уникальный идентификатор урока'),
-            title: z.string().describe('Название урока на русском языке'),
-            logline: z.string().optional().describe('Краткий логлайн урока'),
-            content: z.string().describe('Содержание урока на русском языке (200-300 слов)'),
-            objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
-            guiding_questions: z.array(z.string()).max(8).describe('Наводящие вопросы для расширения материала'),
-            expansion_tips: z.array(z.string()).max(6).describe('Практические советы по расширению контента'),
-            examples_to_add: z.array(z.string()).max(5).describe('Идеи примеров и кейсов'),
-          })
-        ),
+            z.object({
+              id: z.string().describe('ID урока'),
+              title: z.string().describe('Название урока'),
+              content: z.string().describe('Содержание урока (150-200 слов)'),
+              objectives: z.array(z.string()).min(2).max(3).describe('Учебные цели'),
+              guiding_questions: z.array(z.string()).min(2).max(4).optional().describe('Вопросы для расширения'),
+              expansion_tips: z.array(z.string()).min(2).max(3).optional().describe('Советы по расширению'),
+              examples_to_add: z.array(z.string()).min(1).max(2).optional().describe('Примеры'),
+            })
+          ).min(3).max(5),
         }),
       })
       courseStructure = result.object
       log('info', 'generateObject succeeded', {
         hasTitle: !!result.object?.title,
         lessonsCount: result.object?.lessons?.length || 0,
-        outlineCount: result.object?.outline?.length || 0,
       })
     } catch (err: any) {
       // AI SDK may attach useful fields: cause, text, value, usage, response
@@ -491,7 +469,6 @@ export async function POST(request: NextRequest) {
     const durationMs = Date.now() - t0
     log('info', 'Success', {
       lessons: courseStructure?.lessons?.length || 0,
-      outline: courseStructure?.outline?.length || 0,
       durationMs,
     })
 
