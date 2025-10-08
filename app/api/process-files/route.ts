@@ -366,7 +366,7 @@ export async function POST(request: NextRequest) {
         model,
         prompt,
         maxOutputTokens: resolvedMaxOutput,
-        // Removed reasoning to speed up generation (3-5x faster)
+        // Keep schema permissive; we'll normalize after
         schema: z.object({
           title: z.string().describe('Название курса на русском языке'),
           description: z.string().describe('Описание курса на русском языке'),
@@ -375,33 +375,21 @@ export async function POST(request: NextRequest) {
             lesson_id: z.string().describe('Идентификатор урока для стабильности'),
             title: z.string().describe('Название урока'),
             logline: z.string().describe('Краткий логлайн урока (1-2 предложения)'),
-            bullets: z.array(z.string()).min(1).max(7).describe('Тезисы урока'),
+            bullets: z.array(z.string()).max(7).describe('Тезисы урока'),
           })
         ),
           lessons: z.array(
-            z.object({
-              id: z.string().describe('Уникальный идентификатор урока'),
-              title: z.string().describe('Название урока на русском языке'),
-              logline: z.string().optional().describe('Краткий логлайн урока'),
-              content: z.string().describe('Содержание урока на русском языке (200-300 слов)'),
-              objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
-            guiding_questions: z
-              .array(z.string())
-              .min(3)
-              .max(6)
-              .describe('Наводящие вопросы для расширения материала'),
-            expansion_tips: z
-              .array(z.string())
-              .min(3)
-              .max(4)
-              .describe('Практические советы по расширению контента'),
-            examples_to_add: z
-              .array(z.string())
-              .min(2)
-              .max(3)
-              .describe('Идеи примеров и кейсов'),
-            })
-          ),
+          z.object({
+            id: z.string().describe('Уникальный идентификатор урока'),
+            title: z.string().describe('Название урока на русском языке'),
+            logline: z.string().optional().describe('Краткий логлайн урока'),
+            content: z.string().describe('Содержание урока на русском языке (200-300 слов)'),
+            objectives: z.array(z.string()).describe('Учебные цели на русском языке'),
+            guiding_questions: z.array(z.string()).max(8).describe('Наводящие вопросы для расширения материала'),
+            expansion_tips: z.array(z.string()).max(6).describe('Практические советы по расширению контента'),
+            examples_to_add: z.array(z.string()).max(5).describe('Идеи примеров и кейсов'),
+          })
+        ),
         }),
       })
       courseStructure = result.object
