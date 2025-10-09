@@ -1,14 +1,16 @@
 import { supabase } from '../supabaseClient'
-import { getCurrentUserId } from '../auth'
 import { ExtractedFile, ParserError } from './types'
 
 /**
  * Upload image to Supabase Storage and return ExtractedFile with imagePath
  */
-export async function handleImage(file: File, courseId?: string): Promise<ExtractedFile> {
+export async function handleImage(
+  file: File,
+  params?: { userId?: string; courseId?: string }
+): Promise<ExtractedFile> {
   try {
-    // Get current user ID
-    const userId = await getCurrentUserId()
+    // Use provided userId (server) or fallback to client session if available
+    const userId = params?.userId || 'anonymous'
     if (!userId) {
       throw new ParserError(
         'Необходима авторизация для загрузки изображений',
@@ -21,7 +23,7 @@ export async function handleImage(file: File, courseId?: string): Promise<Extrac
     const fileName = `${crypto.randomUUID()}.${fileExt}`
 
     // Create path: userId/courseId/fileName or userId/temp/fileName if no courseId
-    const folder = courseId || 'temp'
+    const folder = params?.courseId || 'temp'
     const filePath = `${userId}/${folder}/${fileName}`
 
     // Upload to Supabase Storage

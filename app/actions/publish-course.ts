@@ -140,24 +140,39 @@ export async function publishCourse(
       }
     }
 
-    // Upsert course
-    const { data: course, error: courseError } = await supabase
-      .from('courses')
-      .upsert(
-        {
-          id: courseId,
+    // Insert or update course depending on presence of courseId
+    let course, courseError
+    if (courseId) {
+      const upd = await supabase
+        .from('courses')
+        .update({
           title: input.title,
           description: input.description,
           slug,
           published: true,
           user_id: userId,
-        },
-        {
-          onConflict: 'id',
-        }
-      )
-      .select()
-      .single()
+        })
+        .eq('id', courseId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+      course = upd.data
+      courseError = upd.error
+    } else {
+      const ins = await supabase
+        .from('courses')
+        .insert({
+          title: input.title,
+          description: input.description,
+          slug,
+          published: true,
+          user_id: userId,
+        })
+        .select()
+        .single()
+      course = ins.data
+      courseError = ins.error
+    }
 
     if (courseError) {
       console.error('Course upsert error:', courseError)

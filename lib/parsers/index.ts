@@ -15,13 +15,17 @@ import type { ExtractedFile } from './types'
  * @param courseId Optional course ID for image uploads
  * @returns ExtractedFile with text or imagePath
  */
-export async function parseFile(file: File, courseId?: string): Promise<ExtractedFile> {
+export async function parseFile(
+  file: File,
+  courseId?: string,
+  userId?: string
+): Promise<ExtractedFile> {
   // Validate file
   const fileType = validateFile(file)
 
   // Handle images
   if (fileType === 'image') {
-    return handleImage(file, courseId)
+    return handleImage(file, { courseId, userId })
   }
 
   // Handle documents based on MIME type
@@ -61,10 +65,11 @@ export async function parseFile(file: File, courseId?: string): Promise<Extracte
  */
 export async function parseFiles(
   files: File[],
-  courseId?: string
+  courseId?: string,
+  userId?: string
 ): Promise<ExtractedFile[]> {
   const results = await Promise.allSettled(
-    files.map(file => parseFile(file, courseId))
+    files.map(file => parseFile(file, courseId, userId))
   )
 
   const extractedFiles: ExtractedFile[] = []

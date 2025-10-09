@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
     // Parse all files (documents and images)
     let extractedFiles: ExtractedFile[]
     try {
-      extractedFiles = await parseFiles(files)
+      const userId = hasImages ? (await ensureAuthServer())?.user?.id : undefined
+      extractedFiles = await parseFiles(files, undefined, userId)
     } catch (error) {
       log('error', 'parseFiles failed', { error: error instanceof Error ? error.message : String(error) })
       return NextResponse.json(
