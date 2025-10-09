@@ -547,45 +547,85 @@ export async function POST(request: NextRequest) {
       isUpdateMode: !!existingCourse,
     })
 
-    // Generate structured course
+    // Generate structured course (per-part to avoid output caps)
     let courseStructure: any
     try {
-      // Choose output budget; increased for reliable course generation
-      const resolvedMaxOutput = Number(
-        process.env.OPENAI_MAX_OUTPUT_TOKENS || (selectedModelId?.startsWith('gpt-5') ? 6000 : 4000)
-      )
+      // 1) If creating: outline -> per-lesson
+      if (!existingCourse) {
+        const outlineSchema = z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          outline: z.array(z.object({
+            lesson_id: z.string(),
+            title: z.string(),
+            logline: z.string().optional(),
+            bullets: z.array(z.string()).min(1).max(7),
+          })).min(3).max(20)
+        })
 
-      log('info', 'Calling generateObject', {
-        provider: selectedProvider,
-        modelId: selectedModelId,
-        maxOutputTokens: resolvedMaxOutput,
-      })
+        const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–7 уроков.`
+        const templateBlock = thesisTemplate ? `\nШАБЛОН ТЕЗИСОВ (СТРОГО ДЛЯ КАЖДОГО УРОКА):\n${thesisTemplate}\nПравила:\n- Используй ровно эти пункты и их порядок\n- Не добавляй/не удаляй и не переименовывай пункты\n` : ''
+        const outlinePrompt = `Сделай структуру курса из текста ниже. ${lessonsReq}${templateBlock}\nИспользуй ТОЛЬКО информацию из текста.\n\nТекст:\n${textForGeneration}`
 
-      const result = await generateObject({
-        model,
-        prompt,
-        maxOutputTokens: resolvedMaxOutput,
-        schema: z.object({
-          title: z.string().describe('Название курса'),
-          description: z.string().describe('Описание курса'),
-          lessons: z.array(
-            z.object({
-              id: z.string().describe('ID урока'),
-              title: z.string().describe('Название урока'),
-              content: z.string().describe('Содержание урока (150-200 слов)'),
-              objectives: z.array(z.string()).min(2).max(3).describe('Учебные цели'),
-              guiding_questions: z.array(z.string()).min(2).max(4).optional().describe('Вопросы для расширения'),
-              expansion_tips: z.array(z.string()).min(2).max(3).optional().describe('Советы по расширению'),
-              examples_to_add: z.array(z.string()).min(1).max(2).optional().describe('Примеры'),
+        const outlineRes = await generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 2000 })
+        const outline = outlineRes.object
+        log('info', 'Outline generated (legacy branch)', { lessons: outline.outline.length })
+
+        const lessonSchema = z.object({
+          id: z.string().optional(),
+          title: z.string(),
+          logline: z.string().optional(),
+          content: z.string(),
+          objectives: z.array(z.string()).min(2).max(4).optional(),
+          guiding_questions: z.array(z.string()).min(3).max(8).optional(),
+          expansion_tips: z.array(z.string()).min(3).max(6).optional(),
+          examples_to_add: z.array(z.string()).min(2).max(5).optional(),
+        })
+
+        const lessons: any[] = []
+        let idx = 0
+        for (const o of outline.outline) {
+          idx++
+          const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
+          const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1100 })
+          const lesson = res.object
+          if (!lesson.id) lesson.id = o.lesson_id
+          lessons.push(lesson)
+          if (idx % 3 === 0) log('info', 'Lessons generated so far', { count: idx })
+        }
+
+        courseStructure = { title: outline.title, description: outline.description, lessons }
+      } else {
+        // 2) If updating: update guidance per existing lesson (lightweight)
+        const existing = existingCourse
+        const guideSchema = z.object({
+          guiding_questions: z.array(z.string()).min(3).max(8).optional(),
+          expansion_tips: z.array(z.string()).min(3).max(6).optional(),
+          examples_to_add: z.array(z.string()).min(2).max(5).optional(),
+        })
+
+        const updatedLessons: any[] = []
+        let i = 0
+        for (const l of existing.lessons || []) {
+          i++
+          const updPrompt = `Обнови вспомогательные поля урока (только списки) по новому материалу. Урок: "${l.title}".\nВерни ТОЛЬКО поля guiding_questions (3-8), expansion_tips (3-6), examples_to_add (2-5).\nИсточник:\n${textForGeneration}`
+          try {
+            const res = await generateObject({ model, prompt: updPrompt, schema: guideSchema, maxOutputTokens: 400 })
+            const g = res.object
+            updatedLessons.push({
+              ...l,
+              guiding_questions: g.guiding_questions ?? l.guiding_questions,
+              expansion_tips: g.expansion_tips ?? l.expansion_tips,
+              examples_to_add: g.examples_to_add ?? l.examples_to_add,
             })
-          ),
-        }),
-      })
-      courseStructure = result.object
-      log('info', 'generateObject succeeded', {
-        hasTitle: !!result.object?.title,
-        lessonsCount: result.object?.lessons?.length || 0,
-      })
+          } catch (e) {
+            // On any failure keep lesson as is
+            updatedLessons.push(l)
+          }
+          if (i % 5 === 0) log('info', 'Updated lessons so far', { count: i })
+        }
+        courseStructure = { title: existing.title, description: existing.description, lessons: updatedLessons }
+      }
     } catch (err: any) {
       // AI SDK may attach useful fields: cause, text, value, usage, response
       log('error', 'generateObject failed', {
