@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { unpublishCourse, deleteCourse } from "@/app/actions/publish-course"
 import type { Course } from "@/app/actions/courses"
 import { ValidationTrigger } from "@/components/course-validation"
+import { ExportDropdown } from "@/components/ExportDropdown"
 
 interface CoursesListProps {
   courses: Course[]
@@ -332,17 +333,20 @@ export function CoursesList({ courses }: CoursesListProps) {
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
-                    <ValidationTrigger
-                      courseId={course.id}
-                      onValidationComplete={(results) => {
-                        toast({
-                          title: results.error ? "Ошибка валидации" : "Валидация завершена",
-                          description: results.error || results.summary,
-                          variant: results.error ? "destructive" : "default",
-                        })
-                        router.refresh()
-                      }}
-                    />
+                    <div className="flex gap-2">
+                      <ValidationTrigger
+                        courseId={course.id}
+                        onValidationComplete={(results) => {
+                          toast({
+                            title: results.error ? "Ошибка валидации" : "Валидация завершена",
+                            description: results.error || results.summary,
+                            variant: results.error ? "destructive" : "default",
+                          })
+                          router.refresh()
+                        }}
+                      />
+                      <ExportDropdown courseId={course.id} />
+                    </div>
                   </div>
                 </Card>
               ))}

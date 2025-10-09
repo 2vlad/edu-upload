@@ -787,7 +787,7 @@
   "two": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Implement database schema for profiles and roles system",
         "description": "Create profiles table with role column and update RLS policies to support admin role access to all courses",
         "details": "Create new migration file for profiles table with user roles ('user'|'admin'), update existing RLS policies to support admin access to all courses while maintaining owner-only access for regular users. Update course policies to allow admins to view/manage all courses. Add indexes for performance.",
@@ -803,7 +803,8 @@
             "dependencies": [],
             "details": "Create migration file 20250108000000_create_profiles_table.sql that adds a profiles table with: id (uuid primary key), user_id (uuid references auth.users), role (enum type 'user' or 'admin' with default 'user'), created_at and updated_at timestamps. Include foreign key constraint with cascade delete and create index on user_id for performance.",
             "status": "done",
-            "testStrategy": "Test migration applies cleanly, profiles table exists with correct schema, foreign key constraints work, indexes are created properly"
+            "testStrategy": "Test migration applies cleanly, profiles table exists with correct schema, foreign key constraints work, indexes are created properly",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -814,7 +815,8 @@
             ],
             "details": "Update the existing RLS policies in courses table to include admin role checks. Modify 'Users can view own courses', 'Users can update own courses', and 'Users can delete own courses' policies to also allow access when user has admin role in profiles table. Use EXISTS subquery to check if auth.uid() has role='admin' in profiles table.",
             "status": "done",
-            "testStrategy": "Test admin users can view/edit/delete any course, regular users still only see their own courses, published courses remain publicly viewable"
+            "testStrategy": "Test admin users can view/edit/delete any course, regular users still only see their own courses, published courses remain publicly viewable",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -825,7 +827,8 @@
             ],
             "details": "Update lessons table RLS policies to include admin role checks. Modify 'Users can view own lessons', 'Users can insert own lessons', 'Users can update own lessons', and 'Users can delete own lessons' policies to also grant access when user has admin role. Use EXISTS subquery to check profiles table for admin role.",
             "status": "done",
-            "testStrategy": "Test admin users can manage lessons from any course, regular users still limited to their own course lessons, published lesson access unchanged"
+            "testStrategy": "Test admin users can manage lessons from any course, regular users still limited to their own course lessons, published lesson access unchanged",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -836,7 +839,8 @@
             ],
             "details": "Update all RLS policies on source_files and course_assets tables to include admin role checks. For each table, modify view, insert, update, and delete policies to also allow access when user has admin role in profiles table. Ensure published course assets remain publicly viewable.",
             "status": "done",
-            "testStrategy": "Test admin users can manage source files and assets from any course, regular users still limited to their own courses, public asset access preserved"
+            "testStrategy": "Test admin users can manage source files and assets from any course, regular users still limited to their own courses, public asset access preserved",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -847,12 +851,13 @@
             ],
             "details": "Create function is_admin(user_uuid) that returns boolean by checking if user has admin role in profiles table. Create function get_user_role(user_uuid) that returns the user's role. Add indexes on profiles(role) and profiles(user_id, role) for performance. These functions will be used in RLS policies and can be reused across the application.",
             "status": "done",
-            "testStrategy": "Test helper functions return correct values, performance is acceptable with indexes, functions can be used in RLS policy conditions successfully"
+            "testStrategy": "Test helper functions return correct values, performance is acceptable with indexes, functions can be used in RLS policy conditions successfully",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Add author_tone field to courses schema",
         "description": "Extend courses table with author_tone field and validation columns for tone input during course creation",
         "details": "Add author_tone TEXT column to courses table, add last_validated_at timestamptz and last_validation_severity columns. Update course creation API to accept and validate tone input (max 2000 characters, HTML sanitization). Add database migration and update TypeScript types.",
@@ -868,7 +873,8 @@
             "dependencies": [],
             "details": "Create a new migration file in supabase/migrations/ directory following the existing naming pattern (timestamp_description.sql). Add author_tone TEXT column, last_validated_at TIMESTAMPTZ column, and last_validation_severity TEXT column with CHECK constraint for severity values (info, warning, error). Include proper indexing for performance.",
             "status": "done",
-            "testStrategy": "Verify migration runs successfully against local Supabase instance and schema matches expected structure"
+            "testStrategy": "Verify migration runs successfully against local Supabase instance and schema matches expected structure",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -879,7 +885,8 @@
             ],
             "details": "Add author_tone?: string | null, last_validated_at?: string | null, and last_validation_severity?: string | null to the Course interface. Ensure the fields are optional to maintain backward compatibility with existing data.",
             "status": "done",
-            "testStrategy": "Verify TypeScript compilation passes and no type errors occur in existing course-related functions"
+            "testStrategy": "Verify TypeScript compilation passes and no type errors occur in existing course-related functions",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -890,7 +897,8 @@
             ],
             "details": "Add author_tone?: string to the payload parameter type, implement validation for max 2000 characters, add HTML sanitization using a sanitization library (investigate if DOMPurify or similar is needed), and include the field in the database insert operation.",
             "status": "done",
-            "testStrategy": "Test that valid tone input is accepted and saved, overly long input is rejected, HTML content is properly sanitized"
+            "testStrategy": "Test that valid tone input is accepted and saved, overly long input is rejected, HTML content is properly sanitized",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -901,7 +909,8 @@
             ],
             "details": "Create a utility function to sanitize HTML content using a secure library (check if project already uses one or add dependency like DOMPurify). Implement character length validation (max 2000), strip dangerous HTML tags while preserving safe formatting, and ensure XSS protection.",
             "status": "done",
-            "testStrategy": "Test sanitization removes script tags and dangerous attributes, preserves safe HTML like <p> and <strong>, validates character count correctly"
+            "testStrategy": "Test sanitization removes script tags and dangerous attributes, preserves safe HTML like <p> and <strong>, validates character count correctly",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -912,12 +921,13 @@
             ],
             "details": "Add author_tone?: string to the patch parameter type in updateCourse function, apply the same validation and sanitization logic as in creation, ensure database update includes the new field, and maintain backward compatibility.",
             "status": "done",
-            "testStrategy": "Test that existing course updates work without author_tone, new tone values are properly validated and saved, sanitization is applied during updates"
+            "testStrategy": "Test that existing course updates work without author_tone, new tone values are properly validated and saved, sanitization is applied during updates",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Create sources table for URL ingestion support",
         "description": "Design and implement sources table to track both file uploads and URL sources for course generation",
         "details": "Create sources table with fields: id, course_id, type ('file'|'link'), url, content_type, raw_text, meta jsonb, created_at. Add RLS policies consistent with existing tables. Update existing file upload logic to use this new table structure while maintaining backward compatibility.",
@@ -933,7 +943,8 @@
             "dependencies": [],
             "details": "Create new migration file at supabase/migrations/[timestamp]_create_sources_table.sql with table definition including: id (uuid primary key), course_id (foreign key to courses), type (enum 'file'|'link'), url (text nullable), content_type (text), raw_text (text nullable), meta (jsonb), created_at (timestamptz). Add proper foreign key constraints and indexes for performance.",
             "status": "done",
-            "testStrategy": "Test migration runs successfully in Supabase, table is created with correct schema, foreign key constraints work properly"
+            "testStrategy": "Test migration runs successfully in Supabase, table is created with correct schema, foreign key constraints work properly",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -944,7 +955,8 @@
             ],
             "details": "Add RLS policies to the migration file that mirror the existing patterns: users can view/insert/update/delete sources for their own courses, anyone can view sources for published courses. Use the same auth.uid() checks and course ownership verification as existing tables like source_files and lessons.",
             "status": "done",
-            "testStrategy": "Test RLS policies allow proper access controls, users can only access their own course sources, published course sources are publicly readable"
+            "testStrategy": "Test RLS policies allow proper access controls, users can only access their own course sources, published course sources are publicly readable",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -955,7 +967,8 @@
             ],
             "details": "In app/actions/courses.ts, add new Source interface with fields: id, course_id, type, url, content_type, raw_text, meta, created_at. Update createCourseFromPayload function to accept sources array instead of sourceFiles. Keep SourceFile interface for backward compatibility during transition period.",
             "status": "done",
-            "testStrategy": "TypeScript compilation succeeds, interface matches database schema exactly, existing code continues to work"
+            "testStrategy": "TypeScript compilation succeeds, interface matches database schema exactly, existing code continues to work",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -967,7 +980,8 @@
             ],
             "details": "Add data migration section to the SQL migration that inserts existing source_files records into sources table with type='file', url=null, content_type=mime, raw_text=text_content. Map storage_path to meta field as jsonb. Ensure all existing data is preserved during migration and foreign key relationships remain intact.",
             "status": "done",
-            "testStrategy": "All existing source_files data successfully migrated to sources table, no data loss, relationships preserved, file upload functionality continues working"
+            "testStrategy": "All existing source_files data successfully migrated to sources table, no data loss, relationships preserved, file upload functionality continues working",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -979,19 +993,20 @@
             ],
             "details": "Update createCourseFromPayload function in app/actions/courses.ts to insert file data into sources table with type='file'. Map existing sourceFiles parameter structure to new sources format. Add backward compatibility layer to handle both old and new data structures during transition. Update any other file handling code to use sources table.",
             "status": "done",
-            "testStrategy": "File uploads work correctly with new sources table, existing file upload functionality preserved, data stored in correct format with proper type field"
+            "testStrategy": "File uploads work correctly with new sources table, existing file upload functionality preserved, data stored in correct format with proper type field",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implement URL ingestion API endpoint",
         "description": "Create API endpoint for extracting content from URLs with proper validation, robots.txt checking, and content parsing",
         "details": "Implement POST /api/sources/ingest-url endpoint using jsdom + @mozilla/readability for HTML parsing, support for text/html, text/plain, application/pdf. Add robots.txt checking, domain allow/deny lists, rate limiting (30 requests/hour per user), size limits (200KB per URL), timeout handling (15s). Return structured response with title, text, wordCount, sourceUrl, contentType.",
         "testStrategy": "Test valid URLs return parsed content, robots.txt blocking works, rate limits enforced, invalid domains rejected, PDF URLs processed correctly",
         "priority": "high",
         "dependencies": [
-          3
+          "3"
         ],
         "status": "done",
         "subtasks": [
@@ -1002,7 +1017,8 @@
             "dependencies": [],
             "details": "Create app/api/sources/ingest-url/route.ts following the existing API patterns in the codebase. Implement POST handler with request validation using zod schema for URL format checking. Add basic URL validation to ensure proper format and protocol (http/https only). Set up error handling structure consistent with existing API endpoints like process-files.",
             "status": "done",
-            "testStrategy": "Test with valid and invalid URLs, malformed requests, missing fields, and verify proper error responses"
+            "testStrategy": "Test with valid and invalid URLs, malformed requests, missing fields, and verify proper error responses",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1013,7 +1029,8 @@
             ],
             "details": "Create utility functions to fetch and parse robots.txt files from target domains. Check User-Agent permissions and crawl-delay directives. Implement domain allow/deny list functionality with configurable lists (environment variables or config file). Add timeout handling for robots.txt requests (5s timeout). Create helper functions for domain extraction and validation.",
             "status": "done",
-            "testStrategy": "Test robots.txt parsing with various formats, domain filtering with allowed/blocked lists, and timeout scenarios"
+            "testStrategy": "Test robots.txt parsing with various formats, domain filtering with allowed/blocked lists, and timeout scenarios",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1024,7 +1041,8 @@
             ],
             "details": "Implement rate limiting using in-memory store or external storage, tracking requests per user/IP with 30 requests/hour limit. Add content-length checking before downloading full content with 200KB limit. Implement request timeout handling with 15s timeout for URL fetching. Add user authentication integration using existing auth patterns from process-files endpoint.",
             "status": "done",
-            "testStrategy": "Test rate limit enforcement, content size rejection, timeout handling, and proper user identification"
+            "testStrategy": "Test rate limit enforcement, content size rejection, timeout handling, and proper user identification",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1036,7 +1054,8 @@
             ],
             "details": "Install @mozilla/readability package. Implement content fetching with proper User-Agent headers and content-type checking. For HTML content, use jsdom to create DOM and @mozilla/readability to extract clean content. For plain text, return content directly. For PDF, integrate with existing PDF parsing from lib/parsers/pdf.ts. Add proper error handling for network issues, parsing failures, and unsupported content types.",
             "status": "done",
-            "testStrategy": "Test HTML parsing with readability, plain text extraction, PDF processing, and various content types"
+            "testStrategy": "Test HTML parsing with readability, plain text extraction, PDF processing, and various content types",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1047,19 +1066,20 @@
             ],
             "details": "Create response format matching the task requirements with title (extracted from HTML title or filename), text content, wordCount calculation, sourceUrl (original URL), and contentType. Integrate with existing ExtractedFile type from lib/parsers/types.ts to maintain consistency with file processing. Add proper error responses for all failure scenarios. Ensure response format is compatible with existing course generation workflow in process-files endpoint.",
             "status": "done",
-            "testStrategy": "Test response structure consistency, word count accuracy, title extraction, and integration with existing course generation system"
+            "testStrategy": "Test response structure consistency, word count accuracy, title extraction, and integration with existing course generation system",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Add URL input interface to course creation page",
         "description": "Extend main upload page with tabs for Files/Links, URL input field, preview functionality, and source management",
         "details": "Add tabs/toggle to main page for Files vs Links sections. In Links section: URL input field, 'Extract' button, preview cards showing title/domain/excerpt, remove button for each link. Integrate with URL ingestion API, show loading states, handle errors gracefully. Limit to 20 URLs per course generation. Update existing file upload flow to work alongside URL sources.",
         "testStrategy": "Test URL input UI, preview generation, error handling, source removal, limits enforced, both files and URLs can be used together",
         "priority": "medium",
         "dependencies": [
-          4
+          "4"
         ],
         "status": "done",
         "subtasks": [
@@ -1070,7 +1090,8 @@
             "dependencies": [],
             "details": "Use the existing Tabs component from /components/ui/tabs.tsx to create a TabsList with two TabsTrigger elements for 'Files' and 'Links'. Style with project's rounded design (rounded-[30px] for primary elements). Position above the existing upload area in app/page.tsx. Set 'Files' as default active tab to maintain existing user experience.",
             "status": "done",
-            "testStrategy": "Test tab switching works correctly, default tab is Files, styling matches existing design system"
+            "testStrategy": "Test tab switching works correctly, default tab is Files, styling matches existing design system",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1081,7 +1102,8 @@
             ],
             "details": "Create a new component for the Links tab content featuring: URL input field with placeholder text, real-time URL validation using browser URL constructor, Extract button that triggers URL processing API call. Use existing Input component from /components/ui/input.tsx and Button component with rounded-[30px] styling. Add appropriate icons from lucide-react (Link, Plus) to match existing file upload interface design.",
             "status": "done",
-            "testStrategy": "Test URL validation works, Extract button is only enabled for valid URLs, error states display correctly"
+            "testStrategy": "Test URL validation works, Extract button is only enabled for valid URLs, error states display correctly",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1092,7 +1114,8 @@
             ],
             "details": "Design and implement URL preview cards using Card component from /components/ui/card.tsx. Display extracted metadata: page title, domain name, content excerpt (truncated to ~150 characters), favicon if available. Include remove button with trash icon from lucide-react. Style cards consistently with existing file preview cards in app/page.tsx (rounded-[30px], bg-muted). Implement loading state while URL metadata is being extracted.",
             "status": "done",
-            "testStrategy": "Test preview cards display correct metadata, remove functionality works, loading states show appropriately"
+            "testStrategy": "Test preview cards display correct metadata, remove functionality works, loading states show appropriately",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1103,7 +1126,8 @@
             ],
             "details": "Add useState for URLs array alongside existing files state in app/page.tsx. Implement addUrl, removeUrl functions similar to existing file management. Add validation to enforce 20 URL maximum limit with user-friendly error messaging using existing error state. Display URL count (e.g., 'Added URLs (5/20)') similar to existing 'Выбранные файлы' section. Ensure URLs persist in component state until course creation.",
             "status": "done",
-            "testStrategy": "Test URL limit enforcement works, URL count displays correctly, state management functions properly"
+            "testStrategy": "Test URL limit enforcement works, URL count displays correctly, state management functions properly",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1114,19 +1138,20 @@
             ],
             "details": "Update handleCreateCourse function in app/page.tsx to append URLs to FormData alongside files. Modify processing stages to account for URL extraction time (add to predicted durations). Update progress tracking to show appropriate messages for URL processing. Ensure existing /api/process-files/route.ts can handle URLs in request. Update course creation button to be enabled when either files OR URLs are present (files.length > 0 || urls.length > 0).",
             "status": "done",
-            "testStrategy": "Test course creation works with URLs only, mixed files and URLs, progress tracking shows URL processing steps"
+            "testStrategy": "Test course creation works with URLs only, mixed files and URLs, progress tracking shows URL processing steps",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Implement course validation system",
         "description": "Create comprehensive course validation with both deterministic checks and optional LLM-based deep validation",
         "details": "Implement POST /api/courses/{id}/validate endpoint with fast/deep modes. Fast validation: structure checks (lessons order, unique titles), outline consistency, link validation (HEAD requests), prerequisites validation, content length checks. Deep validation: LLM analysis of objectives vs content, term definitions, transition smoothness. Create course_validations table to store results. Support streaming progress via SSE for long validations.",
         "testStrategy": "Test fast validation detects structural issues, link validation works, deep validation provides meaningful feedback, results stored correctly, streaming works",
         "priority": "medium",
         "dependencies": [
-          1
+          "1"
         ],
         "status": "done",
         "subtasks": [
@@ -1137,7 +1162,8 @@
             "dependencies": [],
             "details": "Create a new migration file (e.g., 20250108000000_add_course_validations.sql) in supabase/migrations/ that creates the course_validations table with fields: id (uuid, primary key), course_id (uuid, foreign key to courses), validation_type (text: 'fast'|'deep'), status (text: 'pending'|'running'|'completed'|'failed'), results (jsonb for storing validation findings), severity (text: 'info'|'warning'|'error'), started_at, completed_at timestamps, and created_at. Include proper indexes and RLS policies following the existing pattern where users can only access validations for their own courses.",
             "status": "done",
-            "testStrategy": "Test migration applies correctly, table created with proper constraints, RLS policies work, indexes exist"
+            "testStrategy": "Test migration applies correctly, table created with proper constraints, RLS policies work, indexes exist",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1148,7 +1174,8 @@
             ],
             "details": "Create lib/validation/fast-validators.ts with functions for: validateCourseStructure (checks lesson order, unique titles, required fields), validateOutlineConsistency (ensures lessons match course description/objectives), validateLinks (performs HEAD requests to external URLs with timeout), validatePrerequisites (checks dependency chains), validateContentLength (ensures lessons meet minimum/maximum word counts). Each function should return a structured result with severity level, message, and affected lesson IDs. Include proper error handling and timeout mechanisms.",
             "status": "done",
-            "testStrategy": "Unit tests for each validator function, test edge cases like broken links, missing content, circular dependencies"
+            "testStrategy": "Unit tests for each validator function, test edge cases like broken links, missing content, circular dependencies",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1159,7 +1186,8 @@
             ],
             "details": "Create lib/validation/deep-validators.ts with functions for: validateObjectivesAlignment (checks if lesson content matches stated objectives), validateTermDefinitions (ensures consistent terminology across lessons), validateTransitionSmoothness (analyzes logical flow between lessons), validateEducationalQuality (assesses content depth and clarity). Use the existing OpenAI/Anthropic integration pattern from process-files route. Create structured prompts that return JSON validation results with specific feedback. Include retry logic and fallback mechanisms for API failures.",
             "status": "done",
-            "testStrategy": "Test LLM validation provides meaningful feedback, handles API errors gracefully, results are consistent and actionable"
+            "testStrategy": "Test LLM validation provides meaningful feedback, handles API errors gracefully, results are consistent and actionable",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1170,7 +1198,8 @@
             ],
             "details": "Create app/api/courses/[id]/validate/route.ts endpoint that: validates course ownership using ensureAuthServer, accepts mode parameter ('fast'|'deep'), creates validation record in database, runs appropriate validators, streams progress updates via SSE using ReadableStream, stores final results in course_validations table, returns comprehensive validation report. Include proper error handling, timeout management (15 min max), and validation result caching. Follow the existing API patterns from process-files route for model selection and error responses.",
             "status": "done",
-            "testStrategy": "Test both validation modes work, streaming updates arrive correctly, results stored properly, unauthorized access blocked"
+            "testStrategy": "Test both validation modes work, streaming updates arrive correctly, results stored properly, unauthorized access blocked",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1181,19 +1210,20 @@
             ],
             "details": "Create components/course-validation/ with: ValidationTrigger (button component with mode selection), ValidationProgress (SSE progress display with spinner), ValidationResults (formatted display of validation findings with severity indicators and actionable suggestions). Integrate these components into the course editor (app/lessons/page.tsx) with proper state management using React hooks. Include loading states, error handling, and result persistence. Style using existing Tailwind patterns and Radix UI components following the codebase conventions.",
             "status": "done",
-            "testStrategy": "Test validation UI triggers correctly, progress updates display properly, results are readable and actionable, error states handled"
+            "testStrategy": "Test validation UI triggers correctly, progress updates display properly, results are readable and actionable, error states handled",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Add validation UI to courses interface",
         "description": "Create validation interface with progress tracking, detailed reports, and validation history",
         "details": "Add 'Validate Course' button to course page and courses list. Create validation dialog with fast/deep mode selection. Show real-time progress during validation with streaming logs. Display structured validation report with severity levels (ok/warning/error), filterable checks table, quick links to problematic lessons. Add validation badges to course cards showing last validation status and date.",
         "testStrategy": "Test validation UI triggers correctly, progress updates in real-time, reports are readable and actionable, navigation to problem areas works",
         "priority": "medium",
         "dependencies": [
-          6
+          "6"
         ],
         "status": "done",
         "subtasks": [
@@ -1204,7 +1234,8 @@
             "dependencies": [],
             "details": "Create a reusable ValidateButton component that triggers validation for a course. Should integrate with existing UI patterns - rounded buttons (30px for primary, 25px for secondary). Add to CoursesList.tsx course cards and to course/page.tsx header. Pass course ID/slug as prop. Include loading state and appropriate icons (CheckCircle, AlertTriangle, etc.).",
             "status": "done",
-            "testStrategy": "Test button appears in both locations, handles loading states correctly, passes course data properly"
+            "testStrategy": "Test button appears in both locations, handles loading states correctly, passes course data properly",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1215,7 +1246,8 @@
             ],
             "details": "Build ValidationDialog component using existing Dialog UI pattern from components/ui/dialog.tsx. Include radio buttons or toggle for fast vs deep validation modes. Add descriptive text explaining the difference (fast: structure/links, deep: LLM analysis). Include start validation button and cancel option. Should match existing dialog styling from course/page.tsx edit modal.",
             "status": "done",
-            "testStrategy": "Test dialog opens from validate button, mode selection works, validation starts correctly, can be cancelled"
+            "testStrategy": "Test dialog opens from validate button, mode selection works, validation starts correctly, can be cancelled",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1226,7 +1258,8 @@
             ],
             "details": "Implement ValidationProgress component using existing Progress UI from components/ui/progress.tsx. Show percentage progress bar, current step description, and scrollable log area with streaming updates. Use SSE (Server-Sent Events) to receive progress updates from backend API. Include proper error handling and connection recovery. Style similar to existing progress indicators in app/page.tsx processing flow.",
             "status": "done",
-            "testStrategy": "Test progress updates in real-time, logs stream correctly, handles connection errors gracefully, progress reaches 100%"
+            "testStrategy": "Test progress updates in real-time, logs stream correctly, handles connection errors gracefully, progress reaches 100%",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1237,7 +1270,8 @@
             ],
             "details": "Develop ValidationReport component displaying structured validation results. Use Table UI from components/ui/table.tsx for filterable checks table with columns: Check Type, Status (ok/warning/error), Description, Action. Include severity level badges using Badge UI. Add quick navigation links to problematic lessons. Implement filtering by severity level and check type. Style consistent with existing card layouts from CoursesList.tsx.",
             "status": "done",
-            "testStrategy": "Test report displays all validation results, filtering works correctly, navigation links jump to appropriate lessons, badges show correct severity"
+            "testStrategy": "Test report displays all validation results, filtering works correctly, navigation links jump to appropriate lessons, badges show correct severity",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1248,19 +1282,20 @@
             ],
             "details": "Extend CoursesList.tsx course cards to display validation badges. Add validation status (ok/warning/error/never) and last validation date near existing metadata (lessons count, update time). Use Badge UI component with appropriate colors (green/yellow/red/gray). Position near existing Calendar and BookOpen icons. Update Course type to include validation fields: last_validated_at, last_validation_severity. Handle cases where course was never validated.",
             "status": "done",
-            "testStrategy": "Test badges appear on all course cards, show correct status and dates, handle never-validated courses properly, styling integrates well with existing card layout"
+            "testStrategy": "Test badges appear on all course cards, show correct status and dates, handle never-validated courses properly, styling integrates well with existing card layout",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Implement course export functionality",
         "description": "Create export system supporting Markdown and plain text formats in single file or multi-file ZIP packages",
         "details": "Implement GET /api/courses/{id}/export endpoint with format (md|txt) and mode (single|multi) parameters. Single mode: generate one file with YAML frontmatter (for md) containing all lessons. Multi mode: create ZIP with individual lesson files (01-intro.md, etc.) and README. Include course metadata: title, author, level, language, tone, lesson count, validation status. Use jszip for ZIP generation, ensure UTF-8 encoding, escape special characters appropriately.",
         "testStrategy": "Test both formats generate correctly, ZIP files contain proper structure, metadata included, special characters handled, download links work",
         "priority": "medium",
         "dependencies": [
-          2
+          "2"
         ],
         "status": "done",
         "subtasks": [
@@ -1271,7 +1306,8 @@
             "dependencies": [],
             "details": "Install jszip package using npm. Create app/api/courses/[id]/export/route.ts file following the existing API patterns from process-files/route.ts. Implement GET handler with courseId parameter extraction, query parameter validation for format (md|txt) and mode (single|multi), and basic response structure. Include proper TypeScript types and error handling following the codebase patterns.",
             "status": "done",
-            "testStrategy": "Test API route responds correctly, validates parameters, rejects invalid format/mode combinations, handles missing courseId properly"
+            "testStrategy": "Test API route responds correctly, validates parameters, rejects invalid format/mode combinations, handles missing courseId properly",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1282,7 +1318,8 @@
             ],
             "details": "Use the existing getCourse function from app/actions/courses.ts to retrieve course data with lessons. Implement proper authentication using ensureAuthServer() and verify user ownership or course publication status. Add validation to ensure course exists and has lessons to export. Handle edge cases like empty courses or missing data following the established error handling patterns.",
             "status": "done",
-            "testStrategy": "Test course retrieval works for valid IDs, rejects unauthorized access, handles non-existent courses, validates lesson data exists"
+            "testStrategy": "Test course retrieval works for valid IDs, rejects unauthorized access, handles non-existent courses, validates lesson data exists",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1293,7 +1330,8 @@
             ],
             "details": "Create formatAsMarkdown() and formatAsText() functions that convert CourseWithLessons data into properly formatted strings. For markdown: include YAML frontmatter with course metadata (title, author, level, language, tone, lesson count, validation status), format lessons with proper headers and structure. For text: create clean plain text version without markdown syntax. Handle special characters escaping and UTF-8 encoding properly.",
             "status": "done",
-            "testStrategy": "Test both formats generate correctly structured output, metadata included properly, special characters escaped, UTF-8 encoding preserved"
+            "testStrategy": "Test both formats generate correctly structured output, metadata included properly, special characters escaped, UTF-8 encoding preserved",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1304,7 +1342,8 @@
             ],
             "details": "Implement single file mode that combines all lessons into one file with course metadata. For markdown: use YAML frontmatter with complete course info followed by all lessons with proper numbering (01-intro, 02-lesson-name, etc.). For text: create structured plain text with clear section separators. Generate appropriate filename based on course title and format. Set proper content-type headers and handle file download response.",
             "status": "done",
-            "testStrategy": "Test single file contains all lessons, proper metadata, correct filename generation, download headers set correctly"
+            "testStrategy": "Test single file contains all lessons, proper metadata, correct filename generation, download headers set correctly",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1315,21 +1354,22 @@
             ],
             "details": "Use jszip to create ZIP packages containing individual lesson files (01-intro.md, 02-advanced-concepts.md, etc.) and a README file with course metadata. Generate proper filenames from lesson titles (slugified), ensure each file has appropriate content headers. Create README with course overview and lesson index. Handle ZIP generation, compression, and binary response with proper content-type headers. Ensure UTF-8 encoding throughout the ZIP creation process.",
             "status": "done",
-            "testStrategy": "Test ZIP files contain proper structure, individual lesson files formatted correctly, README includes metadata, filenames properly slugified, UTF-8 encoding maintained"
+            "testStrategy": "Test ZIP files contain proper structure, individual lesson files formatted correctly, README includes metadata, filenames properly slugified, UTF-8 encoding maintained",
+            "parentId": "undefined"
           }
         ]
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Add export UI and download interface",
         "description": "Create export menu in course interface with format/mode selection and download management",
         "details": "Add Export menu to course page with dropdown for format (Markdown/Plain Text) and mode (Single File/Multiple Files) selection. Show export progress indicator, generate download links, handle large files appropriately. Provide clear descriptions of each export option. Integrate with course actions menu alongside existing course management features.",
         "testStrategy": "Test export options work correctly, downloads trigger properly, progress indicators show, different formats produce expected results",
         "priority": "low",
         "dependencies": [
-          8
+          "8"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1337,8 +1377,10 @@
             "description": "Build an export dropdown menu with format and mode selection options integrated into the course page interface",
             "dependencies": [],
             "details": "Create a reusable export dropdown component that includes format selection (Markdown/Plain Text) and mode selection (Single File/Multiple Files). Use the existing DropdownMenu UI component from @/components/ui/dropdown-menu and integrate it into the course page header alongside existing course management buttons. Include clear descriptions for each export option to help users understand the differences.",
-            "status": "pending",
-            "testStrategy": "Test dropdown opens correctly, format and mode selections work, descriptions are clear and helpful, integration with course interface is seamless"
+            "status": "done",
+            "testStrategy": "Test dropdown opens correctly, format and mode selections work, descriptions are clear and helpful, integration with course interface is seamless",
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:09:08.966Z"
           },
           {
             "id": 2,
@@ -1348,8 +1390,10 @@
               1
             ],
             "details": "Create an export progress component using the existing Progress UI component and CircularProgress from @/components/ui/loading-spinner. Show export progress during file generation, handle different states (preparing, generating, ready), and display appropriate loading indicators. Include cancel functionality and error handling with user-friendly messages.",
-            "status": "pending",
-            "testStrategy": "Test progress indicators show correctly during export, different states are visually distinct, cancel functionality works, error states display appropriate messages"
+            "status": "done",
+            "testStrategy": "Test progress indicators show correctly during export, different states are visually distinct, cancel functionality works, error states display appropriate messages",
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:09:10.283Z"
           },
           {
             "id": 3,
@@ -1357,8 +1401,10 @@
             "description": "Create state management for export operations including format/mode selection and download tracking",
             "dependencies": [],
             "details": "Add React state hooks to manage export configuration (format: 'md'|'txt', mode: 'single'|'multi'), export progress (idle, preparing, generating, ready, error), and download status. Integrate with existing courseData state management patterns used in the course page. Include persistence of user export preferences in localStorage if needed.",
-            "status": "pending",
-            "testStrategy": "Test state updates correctly when selections change, export progress states transition properly, download status is tracked accurately, user preferences persist across sessions"
+            "status": "done",
+            "testStrategy": "Test state updates correctly when selections change, export progress states transition properly, download status is tracked accurately, user preferences persist across sessions",
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:09:11.547Z"
           },
           {
             "id": 4,
@@ -1369,8 +1415,10 @@
               3
             ],
             "details": "Connect the export UI to the GET /api/courses/{id}/export endpoint with proper parameter passing (format and mode). Handle API responses for download links, implement proper error handling for failed exports, and manage file download triggering. Use the existing courseData structure to get course ID and handle large file downloads appropriately.",
-            "status": "pending",
-            "testStrategy": "Test API calls are made with correct parameters, download links are generated properly, error responses are handled gracefully, large files download without issues"
+            "status": "done",
+            "testStrategy": "Test API calls are made with correct parameters, download links are generated properly, error responses are handled gracefully, large files download without issues",
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:09:12.809Z"
           },
           {
             "id": 5,
@@ -1381,22 +1429,25 @@
               4
             ],
             "details": "Integrate the export dropdown into the course page header (app/course/page.tsx) next to the existing 'Редактировать' button. Follow the established design patterns with rounded-[30px] button styling and proper spacing. Ensure the export menu fits naturally with the existing course interface layout and maintains consistent visual hierarchy.",
-            "status": "pending",
-            "testStrategy": "Test export menu appears in correct location, maintains design consistency with existing buttons, responsive layout works on different screen sizes, no visual conflicts with existing elements"
+            "status": "done",
+            "testStrategy": "Test export menu appears in correct location, maintains design consistency with existing buttons, responsive layout works on different screen sizes, no visual conflicts with existing elements",
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:10:29.825Z"
           }
-        ]
+        ],
+        "updatedAt": "2025-10-09T13:10:29.825Z"
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Enhance admin role functionality and course management",
         "description": "Implement admin-specific features for viewing and managing all courses with enhanced filtering and search",
         "details": "Update /courses page to show all courses for admin users with additional filters (Author, Status, Last Validation, Has Warnings). Add admin-specific actions (Validate, Export, Open) in course list. Implement search functionality across all courses. Ensure UI clearly indicates admin mode vs regular user mode. Add course ownership information in admin view. Maintain existing functionality for regular users unchanged.",
         "testStrategy": "Test admin sees all courses, filters work correctly, search functions properly, regular users still see only their courses, admin actions work on any course",
         "priority": "high",
         "dependencies": [
-          1,
-          7,
-          9
+          "1",
+          "7",
+          "9"
         ],
         "status": "pending",
         "subtasks": [
@@ -1407,7 +1458,8 @@
             "dependencies": [],
             "details": "Add isAdminUser() function to auth-server.ts that checks user_metadata.role === 'admin' or similar field in Supabase user object. This will be used throughout admin functionality to determine permissions. Also add getCurrentUserRole() function that returns user role string.",
             "status": "pending",
-            "testStrategy": "Test that admin users are correctly identified, regular users return false, and functions work with both authenticated and anonymous users"
+            "testStrategy": "Test that admin users are correctly identified, regular users return false, and functions work with both authenticated and anonymous users",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -1418,7 +1470,8 @@
             ],
             "details": "Modify getMyCourses() to accept optional isAdmin parameter. When true, fetch ALL courses from database with additional fields like author name/email joined from auth.users. Add author information to Course interface. Regular users still see only their own + published courses.",
             "status": "pending",
-            "testStrategy": "Test admin sees all courses with author info, regular users see only their courses, course data includes owner information for admin view"
+            "testStrategy": "Test admin sees all courses with author info, regular users see only their courses, course data includes owner information for admin view",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -1429,7 +1482,8 @@
             ],
             "details": "Create AdminCoursesFilter component with search input for title/description, dropdown filters for Author, Status (draft/published), validation status. Add debounced search functionality. Filter courses client-side initially, with option to move to server-side for large datasets.",
             "status": "pending",
-            "testStrategy": "Test search works across all courses, filters combine correctly, UI updates responsively, filters persist during session"
+            "testStrategy": "Test search works across all courses, filters combine correctly, UI updates responsively, filters persist during session",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -1441,7 +1495,8 @@
             ],
             "details": "Add admin mode prop to CoursesList. When admin: show author name in course cards, add 'Admin View' indicator in header, add admin actions (Validate, Export, Open) to each course card. Display course ownership clearly. Maintain all existing functionality for regular users unchanged.",
             "status": "pending",
-            "testStrategy": "Test admin sees author info and admin actions, regular users see unchanged interface, all existing functionality still works"
+            "testStrategy": "Test admin sees author info and admin actions, regular users see unchanged interface, all existing functionality still works",
+            "parentId": "undefined"
           },
           {
             "id": 5,
@@ -1452,15 +1507,20 @@
             ],
             "details": "Add three admin action buttons to each course card: Validate (triggers validation API), Export (downloads course), Open (navigates to course view/edit). These actions work on any course regardless of ownership. Handle permissions server-side to ensure only admins can perform these actions.",
             "status": "pending",
-            "testStrategy": "Test admin can validate/export/open any course, actions are hidden from regular users, server-side permission checks prevent unauthorized access"
+            "testStrategy": "Test admin can validate/export/open any course, actions are hidden from regular users, server-side permission checks prevent unauthorized access",
+            "parentId": "undefined"
           }
         ]
       }
     ],
     "metadata": {
-      "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T12:43:11.258Z",
-      "description": "Tasks for two context"
+      "version": "1.0.0",
+      "lastModified": "2025-10-09T13:10:29.827Z",
+      "taskCount": 10,
+      "completedCount": 9,
+      "tags": [
+        "two"
+      ]
     }
   }
 }
