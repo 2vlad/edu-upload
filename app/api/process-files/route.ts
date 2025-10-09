@@ -209,8 +209,19 @@ export async function POST(request: NextRequest) {
           let selectedProvider: 'openai' | 'anthropic' = 'openai'
           let selectedModelId: string = 'gpt-4o'
           let model: any
+          let fallbackNotice: string | null = null
           if (modelChoice === 'chatgpt4o') { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
-          else if (modelChoice === 'chatgpt5') { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_5 || 'gpt-5'; model = openai(selectedModelId) }
+          else if (modelChoice === 'chatgpt5') {
+            selectedProvider = 'openai'
+            const configured = process.env.OPENAI_MODEL_GPT_5?.trim()
+            if (configured && configured.toLowerCase() !== 'gpt-5') {
+              selectedModelId = configured
+            } else {
+              selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+              fallbackNotice = 'GPT-5 недоступна в текущей конфигурации, используем GPT-4o.'
+            }
+            model = openai(selectedModelId)
+          }
           else if (modelChoice === 'sonnet4') {
             if (process.env.ANTHROPIC_API_KEY) {
               try {
@@ -224,6 +235,10 @@ export async function POST(request: NextRequest) {
           } else { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
 
           await send({ event: 'stage', stage: 'generate', substage: existingCourseJson ? 'update' : 'outline' })
+          if (fallbackNotice) {
+            await send({ event: 'info', message: fallbackNotice, traceId })
+            log('warn', 'Model fallback applied', { requested: modelChoice, selectedModelId })
+          }
           log('info', 'Streaming generation phase started', { mode: existingCourseJson ? 'update' : 'create', modelChoice, lessonCount })
 
           let course: any = null
@@ -324,7 +339,7 @@ export async function POST(request: NextRequest) {
               totalFiles: files.length,
               documentsProcessed: documents.length,
               imagesUploaded: images.length,
-              model: { choice: modelChoice, provider: selectedProvider, modelId: selectedModelId },
+              model: { choice: modelChoice, provider: selectedProvider, modelId: selectedModelId, fallback: fallbackNotice || undefined },
             }
           }, durationMs, traceId })
           clearInterval(heartbeatInterval)
@@ -473,6 +488,7 @@ export async function POST(request: NextRequest) {
     let selectedProvider: 'openai' | 'anthropic' = 'openai'
     let selectedModelId: string = 'gpt-4o'
     let model: any
+    let fallbackNotice: string | null = null
 
     log('info', 'Model selection requested', {
       modelChoice,
@@ -494,9 +510,16 @@ export async function POST(request: NextRequest) {
     } else if (modelChoice === 'chatgpt5') {
       // ChatGPT-5 (with reasoning)
       selectedProvider = 'openai'
-      selectedModelId = process.env.OPENAI_MODEL_GPT_5 || 'gpt-5'
+      const configured = process.env.OPENAI_MODEL_GPT_5?.trim()
+      if (configured && configured.toLowerCase() !== 'gpt-5') {
+        selectedModelId = configured
+        log('info', 'Selected ChatGPT-5 (configured override)', { modelId: selectedModelId })
+      } else {
+        selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+        fallbackNotice = 'GPT-5 недоступна в текущей конфигурации, используем GPT-4o.'
+        log('warn', 'GPT-5 unavailable, falling back to GPT-4o', { fallbackModel: selectedModelId })
+      }
       model = openai(selectedModelId)
-      log('info', 'Selected ChatGPT-5', { modelId: selectedModelId })
     } else if (modelChoice === 'sonnet4') {
       // Claude Sonnet 4 (Anthropic)
       if (process.env.ANTHROPIC_API_KEY) {
@@ -542,6 +565,10 @@ export async function POST(request: NextRequest) {
         { error: 'Ключ API Anthropic не настроен. Добавьте ANTHROPIC_API_KEY в .env.local или выберите другую модель.' },
         { status: 500 }
       )
+    }
+
+    if (fallbackNotice) {
+      log('warn', 'Model fallback applied (legacy branch)', { requestedChoice: modelChoice, selectedModelId })
     }
 
     log('info', 'Final model configuration', {
@@ -767,6 +794,7 @@ export async function POST(request: NextRequest) {
           choice: modelChoice,
           provider: selectedProvider,
           modelId: selectedModelId,
+          fallback: fallbackNotice || undefined,
         },
         extractedFiles: extractedFiles.map(f => ({
           id: f.id,
