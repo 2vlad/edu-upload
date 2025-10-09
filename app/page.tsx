@@ -154,6 +154,7 @@ export default function HomePage() {
       // Parse NDJSON events from response stream for real progress after upload
       let lastIndex = 0
       let resultData: any = null
+      let streamError: string | null = null
       const stageOrderLocal: Stage[] = ['upload','extract','analyze','generate','finalize'] as any
       const weightBeforeStage = (st: Stage) => {
         const idx = stageOrderLocal.indexOf(st)
@@ -191,7 +192,10 @@ export default function HomePage() {
               }
             } else if (evt.event === 'error') {
               console.error('[ndjson:error]', evt.message)
-              setError(evt.message || 'Ошибка обработки на сервере')
+              streamError = evt.message || 'Ошибка обработки на сервере'
+              setError(streamError)
+              // Abort XHR to trigger onerror/onload with rejection
+              xhr.abort()
             } else if (evt.event === 'complete') {
               resultData = evt.result
               setProcessingProgress(100)
@@ -205,6 +209,13 @@ export default function HomePage() {
       }
 
       xhr.onload = () => {
+        // If stream error occurred, reject with that error
+        if (streamError) {
+          console.error('[upload:load] stream error detected', streamError)
+          reject(new Error(streamError))
+          return
+        }
+
         const ct = xhr.getResponseHeader('content-type') || ''
         const json = ct.includes('application/json') ? ((): any => { try { return JSON.parse(xhr.responseText) } catch { return null } })() : null
         console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json })
@@ -234,7 +245,15 @@ export default function HomePage() {
         }
       }
 
-      xhr.onerror = () => reject(new Error('Сеть недоступна'))
+      xhr.onerror = () => {
+        // If aborted due to stream error, reject with that error
+        if (streamError) {
+          console.error('[upload:onerror] stream error detected', streamError)
+          reject(new Error(streamError))
+        } else {
+          reject(new Error('Сеть недоступна'))
+        }
+      }
       xhr.send(formData)
     })
 
