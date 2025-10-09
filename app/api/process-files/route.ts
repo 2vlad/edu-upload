@@ -263,14 +263,22 @@ export async function POST(request: NextRequest) {
             const lessons: any[] = []
             let li = 0
             await send({ event: 'stage', stage: 'generate', substage: 'lessons', total: outline.outline.length, done: 0 })
+            log('info', 'Starting lesson generation loop', { totalLessons: outline.outline.length })
             for (const o of outline.outline) {
+              log('info', 'Generating lesson', { index: li + 1, title: o.title, lessonId: o.lesson_id })
               const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
-              const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 })
-              lessons.push(res.object)
-              li++
-              log('info', 'Streaming lesson generated', { index: li, title: o.title })
-              await send({ event: 'progress', stage: 'generate', substage: 'lessons', done: li, total: outline.outline.length, lesson: o.title })
+              try {
+                const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 })
+                lessons.push(res.object)
+                li++
+                log('info', 'Lesson generated successfully', { index: li, title: o.title, contentLength: res.object?.content?.length || 0 })
+                await send({ event: 'progress', stage: 'generate', substage: 'lessons', done: li, total: outline.outline.length, lesson: o.title })
+              } catch (e: any) {
+                log('error', 'Lesson generation failed', { index: li + 1, title: o.title, error: e?.message || String(e) })
+                throw e // Re-throw to be caught by outer try-catch
+              }
             }
+            log('info', 'All lessons generated', { count: lessons.length })
 
             course = { title: outline.title, description: outline.description, outline: outline.outline, lessons }
           }

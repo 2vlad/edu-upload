@@ -167,17 +167,25 @@ export default function HomePage() {
         const chunk = text.slice(lastIndex)
         lastIndex = text.length
         const lines = chunk.split('\n').filter(Boolean)
+        console.debug('[ndjson:chunk]', { chunkLength: chunk.length, linesCount: lines.length, totalLength: text.length })
         for (const line of lines) {
           try {
             const evt = JSON.parse(line)
+            console.debug('[ndjson:event]', evt)
             if (evt.event === 'stage') {
               const st = evt.stage as Stage
               if (st && st !== 'upload') {
                 setStage(st)
                 const base = weightBeforeStage(st) * 100
                 setProcessingProgress((prev) => Math.max(prev, Math.min(99, base)))
-                setProcessingMessage(st === 'extract' ? 'Извлечение текста...' : st === 'analyze' ? 'Анализ содержимого...' : st === 'generate' ? 'Генерация уроков...' : 'Подготовка курса...')
-                console.debug('[ndjson:stage]', evt)
+                const msg = st === 'extract' ? 'Извлечение текста...'
+                          : st === 'analyze' ? 'Анализ содержимого...'
+                          : st === 'generate' ? (evt.substage === 'outline' ? 'Создание структуры...'
+                                                 : evt.substage === 'lessons' ? `Генерация урока ${evt.done || 0}/${evt.total || 0}...`
+                                                 : 'Генерация уроков...')
+                          : 'Подготовка курса...'
+                setProcessingMessage(msg)
+                console.debug('[ndjson:stage]', { stage: st, substage: evt.substage, msg })
               }
             } else if (evt.event === 'progress') {
               const st = evt.stage as Stage
@@ -188,7 +196,11 @@ export default function HomePage() {
                 const percent = Math.min(99, (before + frac * w) * 100)
                 setProcessingProgress(percent)
                 if (st !== stage) setStage(st)
-                console.debug('[ndjson:progress]', { st, done: evt.done, total: evt.total, percent: Number(percent.toFixed(1)) })
+                // Update message for lesson generation
+                if (st === 'generate' && evt.substage === 'lessons') {
+                  setProcessingMessage(`Генерация урока ${evt.done}/${evt.total}...`)
+                }
+                console.debug('[ndjson:progress]', { st, substage: evt.substage, done: evt.done, total: evt.total, percent: Number(percent.toFixed(1)), lesson: evt.lesson })
               }
             } else if (evt.event === 'error') {
               console.error('[ndjson:error]', evt.message)
@@ -200,10 +212,11 @@ export default function HomePage() {
               resultData = evt.result
               setProcessingProgress(100)
               setStage('done')
-              console.debug('[ndjson:complete]', { durationMs: evt.durationMs })
+              console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
             }
-          } catch {
-            // ignore partial line
+          } catch (e) {
+            // Log parse errors with context
+            console.warn('[ndjson:parse-error]', { line: line.substring(0, 200), error: String(e) })
           }
         }
       }
