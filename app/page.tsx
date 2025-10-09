@@ -88,6 +88,7 @@ export default function HomePage() {
   const uploadBytesRef = useRef({ loaded: 0, total: 0, startedAt: 0, lastTs: 0, lastLoaded: 0, avgBps: 0 })
   const progressTimerRef = useRef<number | null>(null)
   const lastRealProgressRef = useRef(0)
+  const progressFloorRef = useRef(0)
   const displayRafRef = useRef<number | null>(null)
   const displayPrevTsRef = useRef<number | null>(null)
   const advancedAfterUploadRef = useRef(false)
@@ -98,9 +99,18 @@ export default function HomePage() {
     setProcessingProgress((prev) => {
       const raw = typeof value === 'function' ? value(prev) : value
       const bounded = typeof raw === 'number' ? Math.max(0, Math.min(100, raw)) : raw
-      const next = typeof bounded === 'number'
-        ? (opts?.allowDecrease ? bounded : Math.max(prev, bounded))
-        : bounded
+      let next = bounded
+
+      if (typeof bounded === 'number') {
+        if (opts?.allowDecrease) {
+          progressFloorRef.current = bounded
+          next = bounded
+        } else {
+          const raised = Math.max(progressFloorRef.current, bounded, prev)
+          progressFloorRef.current = raised
+          next = raised
+        }
+      }
 
       if (typeof next === 'number' && (opts?.real ?? true)) {
         lastRealProgressRef.current = performance.now()
@@ -488,8 +498,11 @@ export default function HomePage() {
 
       setDisplayProgress((prev) => {
         const target = processingProgress
+        if (target <= prev) {
+          return target
+        }
         const diff = target - prev
-        if (Math.abs(diff) < 0.1) return target
+        if (diff < 0.1) return target
         const smoothing = Math.min(1, dt / 180)
         return prev + diff * smoothing
       })
