@@ -254,10 +254,10 @@ export async function POST(request: NextRequest) {
               title: z.string(),
               logline: z.string().optional(),
               content: z.string(),
-              objectives: z.array(z.string()).min(2).max(4).optional(),
-              guiding_questions: z.array(z.string()).min(3).max(8).optional(),
-              expansion_tips: z.array(z.string()).min(3).max(6).optional(),
-              examples_to_add: z.array(z.string()).min(2).max(5).optional(),
+              objectives: z.array(z.string()).optional(),
+              guiding_questions: z.array(z.string()).optional(),
+              expansion_tips: z.array(z.string()).optional(),
+              examples_to_add: z.array(z.string()).optional(),
             })
 
             const lessons: any[] = []
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
             await send({ event: 'stage', stage: 'generate', substage: 'lessons', total: outline.outline.length, done: 0 })
             for (const o of outline.outline) {
               const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
-              const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 900 })
+              const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 })
               lessons.push(res.object)
               li++
               log('info', 'Streaming lesson generated', { index: li, title: o.title })
