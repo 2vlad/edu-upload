@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File, Link as LinkIcon, Loader2, X, ExternalLink } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
 import {
@@ -96,35 +97,214 @@ export default function HomePage() {
   const router = useRouter()
   const { user, isAnonymous } = useAuth()
   const { toast } = useToast()
+  // Optional generation options
+  const [lessonCount, setLessonCount] = useState<number | ''>('')
+  const [thesisTemplateText, setThesisTemplateText] = useState<string>('')
+
+  // Stage labels and weights - defined early for use in callbacks
+  const STAGE_WEIGHTS: Record<Exclude<Stage, 'idle' | 'done'>, number> = useMemo(() => ({
+    upload: 0.18,
+    extract: 0.12,
+    analyze: 0.18,
+    generate: 0.45,
+    finalize: 0.07,
+  }), [])
+
+  const STAGE_ORDER: Exclude<Stage, 'idle' | 'done'>[] = useMemo(() => ['upload', 'extract', 'analyze', 'generate', 'finalize'], [])
 
   // Upload exactly one file; when existingCourse is provided,
   // server will merge context and return updated course.
   const uploadSingleFile = useCallback(async (file: File, existingCourse?: any) => {
+    // Prepare form data
     const formData = new FormData()
     formData.append('files', file)
     formData.append('modelChoice', modelChoice)
+    formData.append('wantsStream', '1') // Backup for streaming preference (in case header is stripped)
     if (existingCourse) formData.append('existingCourse', JSON.stringify(existingCourse))
+    if (lessonCount && Number(lessonCount) > 0) formData.append('lessonCount', String(lessonCount))
+    if (thesisTemplateText) formData.append('thesisTemplate', thesisTemplateText)
 
-    const res = await fetch('/api/process-files', { method: 'POST', body: formData })
-    const ct = res.headers.get('content-type') || ''
-    const payload = ct.includes('application/json') ? await res.json() : { message: await res.text() }
-    if (!res.ok) {
-      const reason = res.headers.get('X-Auth-Reason')
-      if (res.status === 401 && reason === 'anonymous-signin-disabled') {
-        throw new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.')
+    // Compute weighted upload progress (real bytes)
+    const weightBefore = 0 // upload — первый этап в визуальном цикле при создании
+    const weightUpload = STAGE_WEIGHTS.upload
+
+    const payload = await new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/process-files', true)
+      // NDJSON streaming from server; keep default responseType (text)
+      // We'll set a header to opt-in for streaming progress
+      xhr.setRequestHeader('X-Client-Stream', '1')
+
+      console.debug('[upload:start]', { name: file.name, size: file.size, type: file.type })
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return
+        const frac = Math.min(1, e.loaded / Math.max(1, e.total))
+        const percent = (weightBefore + frac * weightUpload) * 100
+        setProcessingProgress(Math.min(99, percent))
+        setProcessingMessage('Загрузка файлов...')
+        console.debug('[upload:progress]', {
+          loaded: e.loaded,
+          total: e.total,
+          frac: Number(frac.toFixed(3)),
+          visualPercent: Number(percent.toFixed(1))
+        })
       }
-      if (res.status === 413) {
-        throw new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.')
+
+      // Parse NDJSON events from response stream for real progress after upload
+      let lastIndex = 0
+      let resultData: any = null
+      let streamError: string | null = null
+      let lineBuffer = '' // Buffer for incomplete JSON lines across chunks
+      const stageOrderLocal: Stage[] = ['upload','extract','analyze','generate','finalize'] as any
+      const weightBeforeStage = (st: Stage) => {
+        const idx = stageOrderLocal.indexOf(st)
+        if (idx <= 0) return 0
+        return stageOrderLocal.slice(0, idx).reduce((s, k) => s + (STAGE_WEIGHTS as any)[k] || 0, 0)
       }
-      throw new Error(payload?.message || payload?.error || `HTTP ${res.status}`)
-    }
+
+      xhr.onprogress = () => {
+        const text = xhr.responseText || ''
+        const chunk = text.slice(lastIndex)
+        lastIndex = text.length
+
+        // Add chunk to buffer and split by newlines
+        lineBuffer += chunk
+        const lines = lineBuffer.split('\n')
+
+        // Last element might be incomplete, keep it in buffer
+        lineBuffer = lines.pop() || ''
+
+        console.debug('[ndjson:chunk]', { chunkLength: chunk.length, completeLines: lines.length, bufferSize: lineBuffer.length, totalLength: text.length })
+
+        for (const line of lines) {
+          // Skip empty lines (heartbeat)
+          if (!line.trim()) continue
+
+          try {
+            const evt = JSON.parse(line)
+            console.debug('[ndjson:event]', evt)
+            if (evt.event === 'stage') {
+              const st = evt.stage as Stage
+              if (st && st !== 'upload') {
+                setStage(st)
+                const base = weightBeforeStage(st) * 100
+                setProcessingProgress((prev) => Math.max(prev, Math.min(99, base)))
+                const msg = st === 'extract' ? 'Извлечение текста...'
+                          : st === 'analyze' ? 'Анализ содержимого...'
+                          : st === 'generate' ? (evt.substage === 'outline' ? 'Создание структуры...'
+                                                 : evt.substage === 'lessons' ? `Генерация урока ${evt.done || 0}/${evt.total || 0}...`
+                                                 : 'Генерация уроков...')
+                          : 'Подготовка курса...'
+                setProcessingMessage(msg)
+                console.debug('[ndjson:stage]', { stage: st, substage: evt.substage, msg })
+              }
+            } else if (evt.event === 'progress') {
+              const st = evt.stage as Stage
+              if (evt.total && typeof evt.done === 'number') {
+                const w = (STAGE_WEIGHTS as any)[st] || 0
+                const before = weightBeforeStage(st)
+                const frac = Math.max(0, Math.min(1, evt.done / evt.total))
+                const percent = Math.min(99, (before + frac * w) * 100)
+                setProcessingProgress(percent)
+                if (st !== stage) setStage(st)
+                // Update message for lesson generation
+                if (st === 'generate' && evt.substage === 'lessons') {
+                  setProcessingMessage(`Генерация урока ${evt.done}/${evt.total}...`)
+                }
+                console.debug('[ndjson:progress]', { st, substage: evt.substage, done: evt.done, total: evt.total, percent: Number(percent.toFixed(1)), lesson: evt.lesson })
+              }
+            } else if (evt.event === 'error') {
+              console.error('[ndjson:error]', evt.message)
+              streamError = evt.message || 'Ошибка обработки на сервере'
+              setError(streamError)
+              // Abort XHR to trigger onerror/onload with rejection
+              xhr.abort()
+            } else if (evt.event === 'complete') {
+              resultData = evt.result
+              setProcessingProgress(100)
+              setStage('done')
+              console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
+            }
+          } catch (e) {
+            // Log parse errors with context
+            console.warn('[ndjson:parse-error]', { line: line.substring(0, 200), error: String(e) })
+          }
+        }
+      }
+
+      xhr.onload = () => {
+        // Process any remaining buffered line
+        if (lineBuffer.trim()) {
+          try {
+            const evt = JSON.parse(lineBuffer)
+            console.debug('[ndjson:event:final]', evt)
+            if (evt.event === 'complete') {
+              resultData = evt.result
+              setProcessingProgress(100)
+              setStage('done')
+              console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
+            }
+          } catch (e) {
+            console.warn('[ndjson:parse-error:final]', { line: lineBuffer.substring(0, 200), error: String(e) })
+          }
+        }
+
+        // If stream error occurred, reject with that error
+        if (streamError) {
+          console.error('[upload:load] stream error detected', streamError)
+          reject(new Error(streamError))
+          return
+        }
+
+        const ct = xhr.getResponseHeader('content-type') || ''
+        const json = ct.includes('application/json') ? ((): any => { try { return JSON.parse(xhr.responseText) } catch { return null } })() : null
+        console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json, hasResultData: !!resultData })
+        if (xhr.status >= 200 && xhr.status < 300) {
+          // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
+          setProcessingProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev))
+          // Сразу переведём стадию в extract, чтобы не висеть на 18%
+          setStage('extract')
+          setProcessingMessage('Анализ документов...')
+          console.debug('[stage] force -> extract after upload load')
+          // Prefer streamed final result if present
+          resolve((resultData ?? json ?? {}))
+        } else {
+          const reason = xhr.getResponseHeader('X-Auth-Reason')
+          if (xhr.status === 401 && reason === 'anonymous-signin-disabled') {
+            console.warn('[upload:error] anonymous-signin-disabled')
+            reject(new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.'))
+            return
+          }
+          if (xhr.status === 413) {
+            console.warn('[upload:error] HTTP 413')
+            reject(new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.'))
+            return
+          }
+          console.error('[upload:error]', { status: xhr.status, json })
+          reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
+        }
+      }
+
+      xhr.onerror = () => {
+        // If aborted due to stream error, reject with that error
+        if (streamError) {
+          console.error('[upload:onerror] stream error detected', streamError)
+          reject(new Error(streamError))
+        } else {
+          reject(new Error('Сеть недоступна'))
+        }
+      }
+      xhr.send(formData)
+    })
+
     // Optional: log model used
     if ((payload as any)?.metadata?.model) {
       const m = (payload as any).metadata.model
       console.log('✅ Model used:', { requested: m.choice, provider: m.provider, modelId: m.modelId })
     }
     return payload
-  }, [modelChoice])
+  }, [modelChoice, lessonCount, thesisTemplateText, STAGE_WEIGHTS])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -244,17 +424,6 @@ export default function HomePage() {
     setUrls((prev) => prev.filter((url) => url.id !== id))
   }, [])
 
-  // Stage labels and weights
-  const STAGE_WEIGHTS: Record<Exclude<Stage, 'idle' | 'done'>, number> = useMemo(() => ({
-    upload: 0.18,
-    extract: 0.12,
-    analyze: 0.18,
-    generate: 0.45,
-    finalize: 0.07,
-  }), [])
-
-  const STAGE_ORDER: Exclude<Stage, 'idle' | 'done'>[] = ['upload', 'extract', 'analyze', 'generate', 'finalize']
-
   const stageLabel = useMemo(() => {
     switch (stage) {
       case 'upload': return 'Загрузка файлов...'
@@ -368,6 +537,7 @@ export default function HomePage() {
         if (file.size > maxBytes) {
           throw new Error(`Файл «${file.name}» слишком большой (${(file.size/1024/1024).toFixed(1)} MB). Лимит запроса ~${maxMb} MB.`)
         }
+        console.debug('[pipeline] process file', { index: i, name: file.name, size: file.size })
         setProcessingMessage(`Обработка файла ${i + 1} из ${files.length}…`)
         if (i === 0) {
           aggregated = await uploadSingleFile(file)
@@ -376,11 +546,12 @@ export default function HomePage() {
           const { mergedCourse } = mergeCourseUpdates(aggregated, part)
           aggregated = mergedCourse
         }
-        if (stage === 'upload') { setStage('extract'); stageStartRef.current = null }
+        if (stage === 'upload') { setStage('extract'); stageStartRef.current = null; console.debug('[stage] -> extract') }
       }
       const data = aggregated
 
       // Set progress to 100% when done
+      console.debug('[pipeline] done, setting progress 100')
       setProcessingProgress(100)
       setProcessingMessage("Готово!")
       setStage('done')
@@ -473,7 +644,6 @@ export default function HomePage() {
                   size="lg"
                   progress={processingProgress}
                   label={processingMessage}
-                  indeterminate
                 />
                 {processingProgress === 100 && (
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -484,11 +654,9 @@ export default function HomePage() {
               
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {files.length > 0 && `${files.length} ${files.length === 1 ? 'файл' : 'файлов'}`}
-                  {files.length > 0 && urls.length > 0 && ' и '}
-                  {urls.length > 0 && `${urls.length} ${urls.length === 1 ? 'ссылка' : 'ссылок'}`}
-                  {' обрабатывается'}
+                  {files.length} {files.length === 1 ? 'файл' : 'файла'} обрабатывается
                 </p>
+                <p className="text-xs text-muted-foreground/70">Обычно занимает 20–60 сек</p>
               </div>
             </div>
           </Card>
@@ -514,7 +682,7 @@ export default function HomePage() {
                 try { localStorage.setItem('preferredModel', v) } catch {}
               }}
             >
-              <SelectTrigger className="w-full sm:w-[260px] rounded-[30px]">
+              <SelectTrigger className="w-full sm:w-[260px] rounded-[30px] bg-white">
                 <SelectValue placeholder="Выберите модель" />
               </SelectTrigger>
               <SelectContent>
@@ -523,6 +691,37 @@ export default function HomePage() {
                 <SelectItem value="sonnet4">Claude Sonnet 4 (Anthropic)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Optional generation options */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground min-w-40">Количество уроков (опц.)</label>
+              <Input
+                type="number"
+                min={1}
+                value={lessonCount}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === '') setLessonCount('')
+                  else setLessonCount(Math.max(1, Number(v)))
+                }}
+                className="rounded-[30px] w-full bg-white"
+                placeholder="например, 5"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-muted-foreground mb-2 block">Промпт / шаблон (опц.)</label>
+              <Textarea
+                value={thesisTemplateText}
+                onChange={(e) => setThesisTemplateText(e.target.value)}
+                placeholder="Введите дополнительные инструкции или шаблон структуры курса..."
+                className="rounded-[20px] bg-white min-h-[100px] resize-none"
+              />
+              {thesisTemplateText && (
+                <p className="text-xs text-muted-foreground mt-2">Генерация будет учитывать ваши инструкции при создании курса.</p>
+              )}
+            </div>
           </div>
 
           {/* Tabs for Files and Links */}
@@ -550,7 +749,7 @@ export default function HomePage() {
 
                 <input type="file" multiple accept={SUPPORTED_EXTENSIONS} onChange={handleFileSelect} className="hidden" id="file-upload" />
                 <label htmlFor="file-upload">
-                  <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
+                  <Button variant="outline" className="cursor-pointer rounded-[30px] bg-white" asChild>
                     <span>Выбрать файлы</span>
                   </Button>
                 </label>
@@ -578,7 +777,7 @@ export default function HomePage() {
                       }
                     }}
                     disabled={isExtractingUrl || urls.length >= MAX_URLS}
-                    className="rounded-[30px]"
+                    className="rounded-[30px] bg-white"
                   />
                   <Button
                     onClick={handleExtractUrl}

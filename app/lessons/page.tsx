@@ -25,9 +25,11 @@ import {
 import { markAsEdited } from "@/lib/types/course"
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient"
 import { publishCourse } from "@/app/actions/publish-course"
+import { getCourseBySlug } from "@/app/actions/courses"
 import { useToast } from "@/hooks/use-toast"
 import { AuthButton } from "@/components/AuthButton"
 import { useAuth } from "@/lib/auth-context"
+import { ValidationTrigger, ValidationResults, type ValidationResultsData } from "@/components/course-validation"
 
 interface Lesson {
   id: string
@@ -60,6 +62,8 @@ export default function LessonsPage() {
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [isGuidanceOpen, setIsGuidanceOpen] = useState(false)
+  const [publishedCourseId, setPublishedCourseId] = useState<string | null>(null)
+  const [validationResults, setValidationResults] = useState<ValidationResultsData | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -83,6 +87,52 @@ export default function LessonsPage() {
       setEditedObjectives([...lesson.objectives])
     }
   }, [selectedLessonIndex, courseData])
+
+  // Fetch courseId from published course slug
+  useEffect(() => {
+    const fetchCourseId = async () => {
+      const slug = localStorage.getItem("publishedCourseSlug")
+      if (!slug) return
+
+      try {
+        const result = await getCourseBySlug(slug)
+        if (result.success && result.course) {
+          setPublishedCourseId(result.course.id)
+        }
+      } catch (error) {
+        console.error("Failed to fetch published course:", error)
+      }
+    }
+
+    fetchCourseId()
+  }, [])
+
+  const handleValidationComplete = (results: ValidationResultsData) => {
+    setValidationResults(results)
+
+    // Show toast notification
+    if (results.error) {
+      toast({
+        title: "Ошибка валидации",
+        description: results.error,
+        variant: "destructive",
+      })
+    } else {
+      const issueCount = results.reports.reduce(
+        (sum, report) => sum + report.results.filter((r) => !r.passed).length,
+        0
+      )
+
+      toast({
+        title: "Валидация завершена",
+        description:
+          issueCount === 0
+            ? "Проблем не найдено!"
+            : `Найдено ${issueCount} проблем${issueCount === 1 ? 'а' : ''}`,
+        variant: results.overallSeverity === "error" ? "destructive" : "default",
+      })
+    }
+  }
 
   const handlePublish = async () => {
     if (!courseData) return
@@ -404,6 +454,11 @@ export default function LessonsPage() {
             </div>
             <div className="flex items-center gap-3">
               <AuthButton />
+              <ValidationTrigger
+                courseId={publishedCourseId || undefined}
+                onValidationComplete={handleValidationComplete}
+                disabled={!publishedCourseId}
+              />
               <Button
                 onClick={handlePublish}
                 disabled={isPublishing}
@@ -416,6 +471,16 @@ export default function LessonsPage() {
           </div>
         </div>
       </div>
+
+      {/* Validation Results */}
+      {validationResults && (
+        <div className="max-w-[1400px] mx-auto px-6 py-4">
+          <ValidationResults
+            data={validationResults}
+            onClose={() => setValidationResults(null)}
+          />
+        </div>
+      )}
 
       {/* Main Content - Sidebar + Editor */}
       <div className="flex-1 flex overflow-hidden">

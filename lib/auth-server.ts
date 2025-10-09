@@ -93,3 +93,57 @@ export async function getSessionServer() {
   const { data: { session } } = await supabase.auth.getSession()
   return session
 }
+
+/**
+ * Checks if the current user has admin role on the server-side
+ * @returns True if user is admin, false otherwise
+ */
+export async function isAdminServer(): Promise<boolean> {
+  if (!isSupabaseConfigured()) {
+    return false
+  }
+
+  const supabase = createSupabaseServer()
+
+  try {
+    // Call the database function is_admin()
+    const { data, error } = await supabase.rpc('is_admin')
+
+    if (error) {
+      console.error('[isAdminServer] Error checking admin status:', error)
+      return false
+    }
+
+    return data === true
+  } catch (error) {
+    console.error('[isAdminServer] Exception checking admin status:', error)
+    return false
+  }
+}
+
+/**
+ * Gets the current user's role on the server-side
+ * @returns The user's role ('user' or 'admin') or null if not found
+ */
+export async function getUserRoleServer(): Promise<'user' | 'admin' | null> {
+  if (!isSupabaseConfigured()) {
+    return null
+  }
+
+  const supabase = createSupabaseServer()
+
+  try {
+    // Call the database function get_user_role()
+    const { data, error } = await supabase.rpc('get_user_role')
+
+    if (error) {
+      console.error('[getUserRoleServer] Error getting user role:', error)
+      return null
+    }
+
+    return data as 'user' | 'admin' | null
+  } catch (error) {
+    console.error('[getUserRoleServer] Exception getting user role:', error)
+    return null
+  }
+}

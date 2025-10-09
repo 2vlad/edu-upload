@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { generateObject } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { parseFiles, ExtractedFile } from '@/lib/parsers'
+import { parseFiles, parseFile, ExtractedFile } from '@/lib/parsers'
 import { ensureAuthServer } from '@/lib/auth-server'
 
 // Force Node.js runtime (not Edge) for file parsing
@@ -104,6 +104,21 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('files') as File[]
     const existingCourseJson = formData.get('existingCourse') as string | null
     const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt4o')
+    const lessonCountRaw = formData.get('lessonCount') as string | null
+    const lessonCount = lessonCountRaw ? Math.max(1, parseInt(lessonCountRaw)) : null
+    const thesisTemplate = (formData.get('thesisTemplate') as string | null)?.trim() || null
+
+    // Check streaming preference: first try header, then fall back to FormData field
+    const streamHeader = request.headers.get('x-client-stream')
+    const streamFormField = formData.get('wantsStream') as string | null
+    log('info', 'Stream header check', {
+      streamHeader,
+      streamHeaderLower: streamHeader?.toLowerCase(),
+      streamFormField,
+      allHeaders: Object.fromEntries(request.headers.entries()),
+    })
+    const wantsStream = (streamHeader || '').toLowerCase() === '1' || (streamFormField || '').toLowerCase() === '1'
+    log('info', 'Stream mode decision', { wantsStream, viaHeader: !!streamHeader, viaFormData: !!streamFormField })
 
     const hasImages = files.some(f => f.type?.startsWith('image/'))
     if (hasImages) {
@@ -146,7 +161,193 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Parse all files (documents and images)
+    // Streaming NDJSON branch (opt-in by header)
+    if (wantsStream) {
+      log('info', 'Streaming mode enabled (NDJSON)')
+      const { readable, writable } = new TransformStream()
+      const writer = writable.getWriter()
+      const enc = new TextEncoder()
+      const send = async (obj: unknown) => {
+        try { await writer.write(enc.encode(JSON.stringify(obj) + '\n')) } catch (e) { console.error(`[process-files][${traceId}] stream write failed`, e) }
+      }
+
+      ;(async () => {
+        // Heartbeat to prevent buffering
+        const heartbeatInterval = setInterval(async () => {
+          try { await writer.write(enc.encode('\n')) } catch {}
+        }, 1000)
+
+        try {
+          const userId = hasImages ? (await ensureAuthServer())?.user?.id : undefined
+          await send({ event: 'stage', stage: 'extract', total: files.length, done: 0, traceId })
+          const extractedFiles: ExtractedFile[] = []
+          let done = 0
+          for (const f of files) {
+            try {
+              const ef = await parseFile(f, undefined, userId)
+              extractedFiles.push(ef)
+              done++
+              await send({ event: 'progress', stage: 'extract', done, total: files.length, filename: f.name })
+            } catch (e: any) {
+              done++
+              await send({ event: 'progress', stage: 'extract', done, total: files.length, filename: f.name, error: String(e?.message || e) })
+            }
+          }
+
+          const documents = extractedFiles.filter(f => f.text)
+          const images = extractedFiles.filter(f => f.imagePath)
+          if (documents.length === 0) { await send({ event: 'error', message: 'Не найдено ни одного текстового документа для обработки', traceId }); await writer.close(); return }
+
+          await send({ event: 'stage', stage: 'analyze' })
+          const combinedText = combineExtractedText(documents)
+          const combinedChars = combinedText.length
+          if (combinedChars < 100) { await send({ event: 'error', message: `Текст слишком короткий (${combinedChars} символов)`, traceId }); await writer.close(); return }
+          const chunks = chunkText(combinedText, 20000)
+          const textForGeneration = chunks[0]
+
+          // Model selection (short, mirrors legacy branch)
+          let selectedProvider: 'openai' | 'anthropic' = 'openai'
+          let selectedModelId: string = 'gpt-4o'
+          let model: any
+          if (modelChoice === 'chatgpt4o') { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+          else if (modelChoice === 'chatgpt5') { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_5 || 'gpt-5'; model = openai(selectedModelId) }
+          else if (modelChoice === 'sonnet4') {
+            if (process.env.ANTHROPIC_API_KEY) {
+              try {
+                const mod = await import('@ai-sdk/anthropic')
+                // @ts-ignore
+                const createAnthropic = (mod as any).createAnthropic
+                const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+                selectedProvider = 'anthropic'; selectedModelId = process.env.ANTHROPIC_MODEL_SONNET_4 || 'claude-sonnet-4-20250514'; model = anthropic(selectedModelId)
+              } catch { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+            } else { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+          } else { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+
+          await send({ event: 'stage', stage: 'generate', substage: existingCourseJson ? 'update' : 'outline' })
+          log('info', 'Streaming generation phase started', { mode: existingCourseJson ? 'update' : 'create', modelChoice, lessonCount })
+
+          let course: any = null
+          if (existingCourse) {
+            const existingLessonSummary = existingCourse.lessons
+              .map((l: any, idx: number) => `${idx + 1}. ID: ${l.id}, Заголовок: "${l.title}"`).join('\n')
+            const prompt = `Обнови существующий курс "${existingCourse.title}" на основе новых документов.\n\nСУЩЕСТВУЮЩИЕ УРОКИ:\n${existingLessonSummary}\n\nПравила: сохраняй ID, меняй только guidance поля.\n\nНовый материал:\n${textForGeneration}\n\nСоздай обновленную структуру курса на русском.`
+            const schema = z.object({
+              title: z.string(),
+              description: z.string().optional(),
+              outline: z.array(z.object({ lesson_id: z.string(), title: z.string(), logline: z.string().optional(), bullets: z.array(z.string()).min(1).max(8) })).min(1),
+              lessons: z.array(z.object({ id: z.string(), title: z.string(), logline: z.string().optional(), content: z.string().optional(), objectives: z.array(z.string()).optional(), guiding_questions: z.array(z.string()).optional(), expansion_tips: z.array(z.string()).optional(), examples_to_add: z.array(z.string()).optional() })).min(1)
+            })
+            const res = await generateObject({ model, prompt, schema, maxOutputTokens: 5000 })
+            course = res.object
+            await send({ event: 'progress', stage: 'generate', substage: 'update', done: 1, total: 1 })
+          } else {
+            const outlineSchema = z.object({
+              title: z.string(),
+              description: z.string().optional(),
+              outline: z.array(z.object({ lesson_id: z.string(), title: z.string(), logline: z.string().optional(), bullets: z.array(z.string()).min(1).max(7) })).min(3).max(20)
+            })
+            const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–7 уроков.`
+            const templateBlock = thesisTemplate ? `\nШАБЛОН ТЕЗИСОВ (СТРОГО):\n${thesisTemplate}\nПравила: используй ровно эти пункты и их порядок.\n` : ''
+            const outlinePrompt = `Сделай структуру курса из текста ниже. ${lessonsReq}${templateBlock}\nИспользуй ТОЛЬКО информацию из текста.\n\nТекст:\n${textForGeneration}`
+            const outlineRes = await generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 1200 })
+            const outline = outlineRes.object
+            log('info', 'Streaming outline generated', { lessons: outline.outline.length })
+            await send({ event: 'progress', stage: 'generate', substage: 'outline', done: 1, total: 1, lessons: outline.outline.length })
+
+            const lessonSchema = z.object({
+              id: z.string(),
+              title: z.string(),
+              logline: z.string().optional(),
+              content: z.string(),
+              objectives: z.array(z.string()).optional(),
+              guiding_questions: z.array(z.string()).optional(),
+              expansion_tips: z.array(z.string()).optional(),
+              examples_to_add: z.array(z.string()).optional(),
+            })
+
+            const lessons: any[] = []
+            let li = 0
+            await send({ event: 'stage', stage: 'generate', substage: 'lessons', total: outline.outline.length, done: 0 })
+            log('info', 'Starting lesson generation loop', { totalLessons: outline.outline.length })
+            for (const o of outline.outline) {
+              log('info', 'Generating lesson', { index: li + 1, title: o.title, lessonId: o.lesson_id })
+              const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
+              try {
+                const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 })
+                lessons.push(res.object)
+                li++
+                log('info', 'Lesson generated successfully', { index: li, title: o.title, contentLength: res.object?.content?.length || 0 })
+                await send({ event: 'progress', stage: 'generate', substage: 'lessons', done: li, total: outline.outline.length, lesson: o.title })
+              } catch (e: any) {
+                log('error', 'Lesson generation failed', { index: li + 1, title: o.title, error: e?.message || String(e) })
+                throw e // Re-throw to be caught by outer try-catch
+              }
+            }
+            log('info', 'All lessons generated', { count: lessons.length })
+
+            course = { title: outline.title, description: outline.description, outline: outline.outline, lessons }
+          }
+
+          await send({ event: 'stage', stage: 'finalize' })
+
+          const ensureMinItems = (arr: string[] | undefined, min: number, fillers: string[]): string[] => {
+            const base = Array.isArray(arr) ? arr.filter(Boolean).map(s => String(s).trim()).filter(Boolean) : []
+            let i = 0; while (base.length < min) { base.push(fillers[i % fillers.length]); i++ } return base
+          }
+          if (course?.lessons?.length) {
+            course.lessons = course.lessons.map((l: any) => {
+              const title = l.title || 'Урок'
+              return {
+                ...l,
+                guiding_questions: ensureMinItems(l.guiding_questions, 3, [
+                  `Какие ключевые выводы из урока «${title}» важно подчеркнуть?`,
+                  `Как применить идеи из урока «${title}» на практике?`,
+                  `Какие шаги сделать далее после урока «${title}»?`,
+                ]),
+                expansion_tips: ensureMinItems(l.expansion_tips, 3, [
+                  'Добавьте короткий практический пример/кейс.',
+                  'Сделайте чек-лист шагов для применения.',
+                  'Вставьте мини-упражнение для закрепления.',
+                ]),
+                examples_to_add: ensureMinItems(l.examples_to_add, 2, [
+                  'Кейс из личной практики.',
+                  'Пример из индустрии/компании.',
+                ]),
+              }
+            })
+          }
+
+          const durationMs = Date.now() - t0
+          await send({ event: 'complete', result: {
+            ...course,
+            metadata: {
+              totalFiles: files.length,
+              documentsProcessed: documents.length,
+              imagesUploaded: images.length,
+              model: { choice: modelChoice, provider: selectedProvider, modelId: selectedModelId },
+            }
+          }, durationMs, traceId })
+          clearInterval(heartbeatInterval)
+          await writer.close()
+        } catch (e: any) {
+          clearInterval(heartbeatInterval)
+          await send({ event: 'error', message: e?.message || String(e), traceId })
+          try { await writer.close() } catch {}
+        }
+      })()
+
+      return new Response(readable, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache, no-transform',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no',
+          'Transfer-Encoding': 'chunked',
+        }
+      })
+    }
+
+    // Parse all files (documents and images) — legacy JSON branch
     let extractedFiles: ExtractedFile[]
     try {
       const userId = hasImages ? (await ensureAuthServer())?.user?.id : undefined
@@ -181,6 +382,18 @@ export async function POST(request: NextRequest) {
     // Combine text from all documents
     const combinedText = combineExtractedText(documents)
     const combinedChars = combinedText.length
+
+    // Check if combined text is too short
+    if (combinedChars < 100) {
+      log('warn', 'Combined text too short', { combinedChars })
+      return NextResponse.json(
+        {
+          error: 'Текст слишком короткий для создания курса',
+          details: `Найдено только ${combinedChars} символов. Минимум 100 символов требуется для генерации курса.`
+        },
+        { status: 400 }
+      )
+    }
 
     // Check if we need to chunk the text
     // Keep per-request input well under typical TPM limits (~30k) to prevent 429
@@ -228,14 +441,26 @@ export async function POST(request: NextRequest) {
       `
     } else {
       // Create mode - new course
+      const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–5 уроков.`
+      const templateBlock = thesisTemplate ? `
+        ШАБЛОН ТЕЗИСОВ (СТРОГО ДЛЯ КАЖДОГО УРОКА):
+        ${thesisTemplate}
+        Правила:
+        - Используй ровно эти пункты и их порядок
+        - Не добавляй/не удаляй и не переименовывай пункты
+      ` : ''
+
       prompt = `
-        Создай образовательный курс из текста ниже. Курс должен содержать 3-5 уроков.
+        Создай образовательный курс из текста ниже. ${lessonsReq}
 
         Каждый урок:
         - 150-200 слов (краткий и содержательный)
         - Логическая последовательность
         - Практические примеры
         - 2-3 учебные цели
+        ${thesisTemplate ? '- Тезисы-буллеты строго по шаблону ниже' : ''}
+
+        ${templateBlock}
 
         Используй ТОЛЬКО информацию из текста. Не добавляй информацию извне.
 
@@ -338,45 +563,85 @@ export async function POST(request: NextRequest) {
       isUpdateMode: !!existingCourse,
     })
 
-    // Generate structured course
+    // Generate structured course (per-part to avoid output caps)
     let courseStructure: any
     try {
-      // Choose output budget; increased for reliable course generation
-      const resolvedMaxOutput = Number(
-        process.env.OPENAI_MAX_OUTPUT_TOKENS || (selectedModelId?.startsWith('gpt-5') ? 6000 : 4000)
-      )
+      // 1) If creating: outline -> per-lesson
+      if (!existingCourse) {
+        const outlineSchema = z.object({
+          title: z.string(),
+          description: z.string().optional(),
+          outline: z.array(z.object({
+            lesson_id: z.string(),
+            title: z.string(),
+            logline: z.string().optional(),
+            bullets: z.array(z.string()).min(1).max(7),
+          })).min(3).max(20)
+        })
 
-      log('info', 'Calling generateObject', {
-        provider: selectedProvider,
-        modelId: selectedModelId,
-        maxOutputTokens: resolvedMaxOutput,
-      })
+        const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–7 уроков.`
+        const templateBlock = thesisTemplate ? `\nШАБЛОН ТЕЗИСОВ (СТРОГО ДЛЯ КАЖДОГО УРОКА):\n${thesisTemplate}\nПравила:\n- Используй ровно эти пункты и их порядок\n- Не добавляй/не удаляй и не переименовывай пункты\n` : ''
+        const outlinePrompt = `Сделай структуру курса из текста ниже. ${lessonsReq}${templateBlock}\nИспользуй ТОЛЬКО информацию из текста.\n\nТекст:\n${textForGeneration}`
 
-      const result = await generateObject({
-        model,
-        prompt,
-        maxOutputTokens: resolvedMaxOutput,
-        schema: z.object({
-          title: z.string().describe('Название курса'),
-          description: z.string().describe('Описание курса'),
-          lessons: z.array(
-            z.object({
-              id: z.string().describe('ID урока'),
-              title: z.string().describe('Название урока'),
-              content: z.string().describe('Содержание урока (150-200 слов)'),
-              objectives: z.array(z.string()).min(2).max(3).describe('Учебные цели'),
-              guiding_questions: z.array(z.string()).min(2).max(4).optional().describe('Вопросы для расширения'),
-              expansion_tips: z.array(z.string()).min(2).max(3).optional().describe('Советы по расширению'),
-              examples_to_add: z.array(z.string()).min(1).max(2).optional().describe('Примеры'),
+        const outlineRes = await generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 2000 })
+        const outline = outlineRes.object
+        log('info', 'Outline generated (legacy branch)', { lessons: outline.outline.length })
+
+        const lessonSchema = z.object({
+          id: z.string().optional(),
+          title: z.string(),
+          logline: z.string().optional(),
+          content: z.string(),
+          objectives: z.array(z.string()).min(2).max(4).optional(),
+          guiding_questions: z.array(z.string()).min(3).max(8).optional(),
+          expansion_tips: z.array(z.string()).min(3).max(6).optional(),
+          examples_to_add: z.array(z.string()).min(2).max(5).optional(),
+        })
+
+        const lessons: any[] = []
+        let idx = 0
+        for (const o of outline.outline) {
+          idx++
+          const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
+          const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1100 })
+          const lesson = res.object
+          if (!lesson.id) lesson.id = o.lesson_id
+          lessons.push(lesson)
+          if (idx % 3 === 0) log('info', 'Lessons generated so far', { count: idx })
+        }
+
+        courseStructure = { title: outline.title, description: outline.description, lessons }
+      } else {
+        // 2) If updating: update guidance per existing lesson (lightweight)
+        const existing = existingCourse
+        const guideSchema = z.object({
+          guiding_questions: z.array(z.string()).min(3).max(8).optional(),
+          expansion_tips: z.array(z.string()).min(3).max(6).optional(),
+          examples_to_add: z.array(z.string()).min(2).max(5).optional(),
+        })
+
+        const updatedLessons: any[] = []
+        let i = 0
+        for (const l of existing.lessons || []) {
+          i++
+          const updPrompt = `Обнови вспомогательные поля урока (только списки) по новому материалу. Урок: "${l.title}".\nВерни ТОЛЬКО поля guiding_questions (3-8), expansion_tips (3-6), examples_to_add (2-5).\nИсточник:\n${textForGeneration}`
+          try {
+            const res = await generateObject({ model, prompt: updPrompt, schema: guideSchema, maxOutputTokens: 400 })
+            const g = res.object
+            updatedLessons.push({
+              ...l,
+              guiding_questions: g.guiding_questions ?? l.guiding_questions,
+              expansion_tips: g.expansion_tips ?? l.expansion_tips,
+              examples_to_add: g.examples_to_add ?? l.examples_to_add,
             })
-          ).min(3).max(5),
-        }),
-      })
-      courseStructure = result.object
-      log('info', 'generateObject succeeded', {
-        hasTitle: !!result.object?.title,
-        lessonsCount: result.object?.lessons?.length || 0,
-      })
+          } catch (e) {
+            // On any failure keep lesson as is
+            updatedLessons.push(l)
+          }
+          if (i % 5 === 0) log('info', 'Updated lessons so far', { count: i })
+        }
+        courseStructure = { title: existing.title, description: existing.description, lessons: updatedLessons }
+      }
     } catch (err: any) {
       // AI SDK may attach useful fields: cause, text, value, usage, response
       log('error', 'generateObject failed', {
@@ -409,9 +674,28 @@ export async function POST(request: NextRequest) {
         return res
       }
 
+      // Provide more helpful error messages
+      let userMessage = 'Не удалось сгенерировать курс'
+      let errorDetails = err?.message || 'Unknown error'
+
+      // Check for common error patterns
+      if (err?.message?.includes('API key')) {
+        userMessage = 'Ошибка API ключа'
+        errorDetails = 'Проверьте настройки API ключа OpenAI в переменных окружения'
+      } else if (err?.message?.includes('rate limit')) {
+        userMessage = 'Превышен лимит запросов'
+        errorDetails = 'Пожалуйста, подождите немного и попробуйте снова'
+      } else if (err?.message?.includes('timeout')) {
+        userMessage = 'Превышено время ожидания'
+        errorDetails = 'Попробуйте загрузить меньший файл или уменьшите количество уроков'
+      } else if (err?.cause?.issues) {
+        userMessage = 'Ошибка валидации структуры курса'
+        errorDetails = JSON.stringify(err.cause.issues)
+      }
+
       const res = NextResponse.json({
-        error: 'AI генерация не прошла валидацию',
-        details: err?.message || 'Unknown error',
+        error: userMessage,
+        details: errorDetails,
         provider: selectedProvider,
         modelId: selectedModelId,
         traceId
