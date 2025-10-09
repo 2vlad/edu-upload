@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File, Link as LinkIcon, Loader2, X, ExternalLink } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
 import {
@@ -99,7 +100,6 @@ export default function HomePage() {
   // Optional generation options
   const [lessonCount, setLessonCount] = useState<number | ''>('')
   const [thesisTemplateText, setThesisTemplateText] = useState<string>('')
-  const [thesisTemplateName, setThesisTemplateName] = useState<string>('')
 
   // Stage labels and weights - defined early for use in callbacks
   const STAGE_WEIGHTS: Record<Exclude<Stage, 'idle' | 'done'>, number> = useMemo(() => ({
@@ -155,6 +155,10 @@ export default function HomePage() {
         if (xhr.status >= 200 && xhr.status < 300) {
           // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
           setProcessingProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev))
+          // Сразу переведём стадию в extract, чтобы не висеть на 18%
+          setStage('extract')
+          setProcessingMessage('Анализ документов...')
+          console.debug('[stage] force -> extract after upload load')
           resolve(json ?? {})
         } else {
           const reason = xhr.getResponseHeader('X-Auth-Reason')
@@ -213,22 +217,6 @@ export default function HomePage() {
         setError('Некоторые файлы не поддерживаются и были пропущены')
       }
       setFiles((prev) => [...prev, ...selectedFiles])
-    }
-  }, [])
-
-  // Thesis template selector
-  const handleThesisTemplateSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    try {
-      const text = await f.text()
-      setThesisTemplateText(text.trim())
-      setThesisTemplateName(f.name)
-    } catch (err) {
-      console.error('Failed to read template:', err)
-      setThesisTemplateText('')
-      setThesisTemplateName('')
-      setError('Не удалось прочитать файл шаблона')
     }
   }, [])
 
@@ -606,30 +594,18 @@ export default function HomePage() {
                 placeholder="например, 5"
               />
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-muted-foreground min-w-40">Шаблон тезисов (опц.)</label>
-              <input
-                id="thesis-template"
-                type="file"
-                accept=".txt,.md"
-                onChange={handleThesisTemplateSelect}
-                className="sr-only"
+            <div className="md:col-span-2">
+              <label className="text-sm text-muted-foreground mb-2 block">Промпт / шаблон (опц.)</label>
+              <Textarea
+                value={thesisTemplateText}
+                onChange={(e) => setThesisTemplateText(e.target.value)}
+                placeholder="Введите дополнительные инструкции или шаблон структуры курса..."
+                className="rounded-[20px] bg-white min-h-[100px] resize-none"
               />
-              <label
-                htmlFor="thesis-template"
-                className="w-full md:w-auto cursor-pointer"
-              >
-                <div className="bg-white rounded-[30px] border px-3 py-2 flex items-center gap-3 min-w-[260px]">
-                  <span className="text-sm font-medium whitespace-nowrap">Выбрать файл</span>
-                  <span className="text-sm text-muted-foreground truncate">
-                    {thesisTemplateName || 'Файл не выбран'}
-                  </span>
-                </div>
-              </label>
+              {thesisTemplateText && (
+                <p className="text-xs text-muted-foreground mt-2">Генерация будет учитывать ваши инструкции при создании курса.</p>
+              )}
             </div>
-            {thesisTemplateText && (
-              <p className="text-xs text-muted-foreground md:col-span-2">Загружен шаблон тезисов. Генерация будет СТРОГО следовать ему.</p>
-            )}
           </div>
 
           {/* Tabs for Files and Links */}
