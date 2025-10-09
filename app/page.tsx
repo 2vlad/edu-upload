@@ -484,11 +484,9 @@ export default function HomePage() {
               
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {files.length > 0 && `${files.length} ${files.length === 1 ? 'файл' : 'файлов'}`}
-                  {files.length > 0 && urls.length > 0 && ' и '}
-                  {urls.length > 0 && `${urls.length} ${urls.length === 1 ? 'ссылка' : 'ссылок'}`}
-                  {' обрабатывается'}
+                  {files.length} {files.length === 1 ? 'файл' : 'файла'} обрабатывается
                 </p>
+                <p className="text-xs text-muted-foreground/70">Обычно занимает 20–60 сек</p>
               </div>
             </div>
           </Card>
