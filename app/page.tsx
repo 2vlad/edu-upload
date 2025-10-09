@@ -79,6 +79,7 @@ export default function HomePage() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
+  const [displayProgress, setDisplayProgress] = useState(0)
   const [processingMessage, setProcessingMessage] = useState("")
   const [etaMs, setEtaMs] = useState<number | null>(null)
   type Stage = 'idle' | 'upload' | 'extract' | 'analyze' | 'generate' | 'finalize' | 'done'
@@ -87,6 +88,8 @@ export default function HomePage() {
   const uploadBytesRef = useRef({ loaded: 0, total: 0, startedAt: 0, lastTs: 0, lastLoaded: 0, avgBps: 0 })
   const progressTimerRef = useRef<number | null>(null)
   const lastRealProgressRef = useRef(0)
+  const displayRafRef = useRef<number | null>(null)
+  const displayPrevTsRef = useRef<number | null>(null)
   const advancedAfterUploadRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
   type ProgressUpdater = number | ((prev: number) => number)
@@ -461,6 +464,42 @@ export default function HomePage() {
 
   const predicted = useMemo(() => predictDurations(files, modelChoice), [files, modelChoice])
 
+  useEffect(() => {
+    if (!isProcessing) {
+      if (displayRafRef.current) cancelAnimationFrame(displayRafRef.current)
+      displayRafRef.current = null
+      displayPrevTsRef.current = null
+      setDisplayProgress(processingProgress)
+      return
+    }
+
+    if (displayRafRef.current) cancelAnimationFrame(displayRafRef.current)
+    displayPrevTsRef.current = null
+
+    const tick = (timestamp: number) => {
+      if (displayPrevTsRef.current === null) displayPrevTsRef.current = timestamp
+      const dt = Math.min(240, timestamp - (displayPrevTsRef.current || timestamp))
+      displayPrevTsRef.current = timestamp
+
+      setDisplayProgress((prev) => {
+        const target = processingProgress
+        const diff = target - prev
+        if (Math.abs(diff) < 0.1) return target
+        const smoothing = Math.min(1, dt / 180)
+        return prev + diff * smoothing
+      })
+
+      displayRafRef.current = requestAnimationFrame(tick)
+    }
+
+    displayRafRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (displayRafRef.current) cancelAnimationFrame(displayRafRef.current)
+      displayRafRef.current = null
+      displayPrevTsRef.current = null
+    }
+  }, [isProcessing, processingProgress])
+
   // Progress driver for non-upload stages
   useEffect(() => {
     if (!isProcessing) {
@@ -651,10 +690,10 @@ export default function HomePage() {
               <div className="relative">
                 <CircularProgress
                   size="lg"
-                  progress={processingProgress}
+                  progress={displayProgress}
                   label={processingMessage}
                 />
-                {processingProgress === 100 && (
+                {Math.round(displayProgress) === 100 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Sparkles className="w-8 h-8 text-primary animate-pulse" />
                   </div>
