@@ -596,12 +596,11 @@ export default function HomePage() {
               <Input
                 type="number"
                 min={1}
-                max={12}
                 value={lessonCount}
                 onChange={(e) => {
                   const v = e.target.value
                   if (v === '') setLessonCount('')
-                  else setLessonCount(Math.max(1, Math.min(12, Number(v))))
+                  else setLessonCount(Math.max(1, Number(v)))
                 }}
                 className="rounded-[30px] w-full bg-white"
                 placeholder="например, 5"
