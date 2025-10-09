@@ -86,8 +86,20 @@ export default function HomePage() {
   const stageStartRef = useRef<number | null>(null)
   const uploadBytesRef = useRef({ loaded: 0, total: 0, startedAt: 0, lastTs: 0, lastLoaded: 0, avgBps: 0 })
   const progressTimerRef = useRef<number | null>(null)
+  const lastRealProgressRef = useRef(0)
   const advancedAfterUploadRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
+  type ProgressUpdater = number | ((prev: number) => number)
+
+  const setProgress = useCallback((value: ProgressUpdater, opts?: { real?: boolean }) => {
+    setProcessingProgress((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value
+      if (typeof next === 'number' && (opts?.real ?? true)) {
+        lastRealProgressRef.current = performance.now()
+      }
+      return next
+    })
+  }, [setProcessingProgress])
   // Model selection: "chatgpt5" | "sonnet4"
   const [modelChoice, setModelChoice] = useState<string>(
     typeof window !== 'undefined'
@@ -141,7 +153,7 @@ export default function HomePage() {
         if (!e.lengthComputable) return
         const frac = Math.min(1, e.loaded / Math.max(1, e.total))
         const percent = (weightBefore + frac * weightUpload) * 100
-        setProcessingProgress(Math.min(99, percent))
+        setProgress(Math.min(99, percent))
         setProcessingMessage('Загрузка файлов...')
         console.debug('[upload:progress]', {
           loaded: e.loaded,
@@ -188,8 +200,9 @@ export default function HomePage() {
               const st = evt.stage as Stage
               if (st && st !== 'upload') {
                 setStage(st)
+                stageStartRef.current = performance.now()
                 const base = weightBeforeStage(st) * 100
-                setProcessingProgress((prev) => Math.max(prev, Math.min(99, base)))
+                setProgress((prev) => Math.max(prev, Math.min(99, base)))
                 const msg = st === 'extract' ? 'Извлечение текста...'
                           : st === 'analyze' ? 'Анализ содержимого...'
                           : st === 'generate' ? (evt.substage === 'outline' ? 'Создание структуры...'
@@ -206,8 +219,11 @@ export default function HomePage() {
                 const before = weightBeforeStage(st)
                 const frac = Math.max(0, Math.min(1, evt.done / evt.total))
                 const percent = Math.min(99, (before + frac * w) * 100)
-                setProcessingProgress(percent)
-                if (st !== stage) setStage(st)
+                setProgress(percent)
+                if (st !== stage) {
+                  setStage(st)
+                  stageStartRef.current = performance.now()
+                }
                 // Update message for lesson generation
                 if (st === 'generate' && evt.substage === 'lessons') {
                   setProcessingMessage(`Генерация урока ${evt.done}/${evt.total}...`)
@@ -222,7 +238,7 @@ export default function HomePage() {
               xhr.abort()
             } else if (evt.event === 'complete') {
               resultData = evt.result
-              setProcessingProgress(100)
+              setProgress(100)
               setStage('done')
               console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
             }
@@ -241,7 +257,7 @@ export default function HomePage() {
             console.debug('[ndjson:event:final]', evt)
             if (evt.event === 'complete') {
               resultData = evt.result
-              setProcessingProgress(100)
+              setProgress(100)
               setStage('done')
               console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
             }
@@ -262,7 +278,7 @@ export default function HomePage() {
         console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json, hasResultData: !!resultData })
         if (xhr.status >= 200 && xhr.status < 300) {
           // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
-          setProcessingProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev))
+          setProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev), { real: false })
           // Сразу переведём стадию в extract, чтобы не висеть на 18%
           setStage('extract')
           setProcessingMessage('Анализ документов...')
@@ -424,18 +440,6 @@ export default function HomePage() {
     setUrls((prev) => prev.filter((url) => url.id !== id))
   }, [])
 
-  const stageLabel = useMemo(() => {
-    switch (stage) {
-      case 'upload': return 'Загрузка файлов...'
-      case 'extract': return 'Извлечение текста...'
-      case 'analyze': return 'Анализ содержимого...'
-      case 'generate': return 'Генерация уроков...'
-      case 'finalize': return 'Подготовка курса...'
-      case 'done': return 'Готово!'
-      default: return processingMessage || ''
-    }
-  }, [stage, processingMessage])
-
   // Rough duration predictors based on file sizes and model
   function predictDurations(fls: File[], model: string) {
     const sizes = fls.reduce((acc, f) => {
@@ -459,68 +463,73 @@ export default function HomePage() {
 
   // Progress driver for non-upload stages
   useEffect(() => {
-    if (!isProcessing) return
+    if (!isProcessing) {
+      if (progressTimerRef.current) cancelAnimationFrame(progressTimerRef.current)
+      progressTimerRef.current = null
+      setEtaMs(null)
+      return
+    }
 
-    setProcessingMessage(stageLabel)
+    if (stage !== 'analyze' && stage !== 'finalize') {
+      if (progressTimerRef.current) cancelAnimationFrame(progressTimerRef.current)
+      progressTimerRef.current = null
+      stageStartRef.current = null
+      setEtaMs((prev) => (prev !== null ? null : prev))
+      return
+    }
 
-    if (stage === 'upload' || stage === 'done' || stage === 'idle') return
-
-    if (!stageStartRef.current) stageStartRef.current = performance.now()
-
-    const durationByStage: Record<'extract' | 'analyze' | 'generate' | 'finalize', number> = {
-      extract: predicted.extract,
+    const durationByStage: Record<'analyze' | 'finalize', number> = {
       analyze: predicted.analyze,
-      generate: predicted.generate,
       finalize: predicted.finalize,
     }
 
+    if (!stageStartRef.current) stageStartRef.current = performance.now()
+
+    const stageIndex = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number])
     const prevWeight = STAGE_ORDER
-      .slice(0, STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]))
+      .slice(0, stageIndex)
       .reduce((s, k) => s + STAGE_WEIGHTS[k], 0)
 
-    function tick() {
+    const tick = () => {
       const now = performance.now()
-      const elapsed = (now - (stageStartRef.current || now))
+      if (!stageStartRef.current) stageStartRef.current = now
+
+      if (now - lastRealProgressRef.current < 400) {
+        stageStartRef.current = now
+        progressTimerRef.current = requestAnimationFrame(tick)
+        return
+      }
+
+      const elapsed = now - (stageStartRef.current || now)
       const duration = durationByStage[stage as keyof typeof durationByStage] || 1000
-      const stageFrac = Math.min(1, elapsed / duration)
+      const stageFrac = Math.min(1, elapsed / Math.max(1, duration))
       const base = prevWeight * 100
       const current = base + stageFrac * STAGE_WEIGHTS[stage as keyof typeof STAGE_WEIGHTS] * 100
-      const cap = 99
-      setProcessingProgress(Math.min(current, cap))
+      setProgress(Math.min(current, 99), { real: false })
 
       const remainingThis = Math.max(0, duration - elapsed)
       const remainingNext = STAGE_ORDER
-        .slice(STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number]) + 1)
+        .slice(stageIndex + 1)
         .reduce((sum, k) => sum + (k === 'upload' ? 0 : (predicted as any)[k] || 0), 0)
       setEtaMs(Math.round(remainingThis + remainingNext))
 
-      if (stageFrac >= 1) {
-        const idx = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number])
-        if (idx >= 0 && idx < STAGE_ORDER.length - 1) {
-          setStage(STAGE_ORDER[idx + 1])
-          stageStartRef.current = null
-        }
-      }
+      progressTimerRef.current = requestAnimationFrame(tick)
     }
 
     if (progressTimerRef.current) cancelAnimationFrame(progressTimerRef.current)
-    const rafLoop = () => {
-      tick()
-      progressTimerRef.current = requestAnimationFrame(rafLoop)
-    }
-    progressTimerRef.current = requestAnimationFrame(rafLoop)
+    progressTimerRef.current = requestAnimationFrame(tick)
     return () => {
       if (progressTimerRef.current) cancelAnimationFrame(progressTimerRef.current)
       progressTimerRef.current = null
     }
-  }, [isProcessing, stage, predicted, STAGE_ORDER, STAGE_WEIGHTS, stageLabel])
+  }, [STAGE_ORDER, STAGE_WEIGHTS, isProcessing, predicted, setEtaMs, setProgress, stage])
 
   const handleCreateCourse = async () => {
     if (files.length === 0 && urls.length === 0) return
 
     setIsProcessing(true)
     setError(null)
-    setProcessingProgress(0)
+    setProgress(0)
     setProcessingMessage("Начинаем обработку...")
     setEtaMs(null)
     setStage('upload')
@@ -552,7 +561,7 @@ export default function HomePage() {
 
       // Set progress to 100% when done
       console.debug('[pipeline] done, setting progress 100')
-      setProcessingProgress(100)
+      setProgress(100)
       setProcessingMessage("Готово!")
       setStage('done')
 
@@ -614,7 +623,7 @@ export default function HomePage() {
       console.error("Error creating course:", error)
       setError(error instanceof Error ? error.message : "Произошла ошибка при создании курса")
       setIsProcessing(false)
-      setProcessingProgress(0)
+      setProgress(0)
       setStage('idle')
     }
   }
