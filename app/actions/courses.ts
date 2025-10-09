@@ -47,6 +47,17 @@ export interface SourceFile {
   created_at: string
 }
 
+export interface Source {
+  id: string
+  course_id: string
+  type: 'file' | 'link'
+  url: string | null
+  content_type: string | null
+  raw_text: string | null
+  meta: Record<string, any>
+  created_at: string
+}
+
 /**
  * Create course with lessons from payload (for autosave after generation)
  */
@@ -67,6 +78,13 @@ export async function createCourseFromPayload(payload: {
     mime: string
     text_content?: string
     storage_path?: string
+  }>
+  sources?: Array<{
+    type: 'file' | 'link'
+    url?: string
+    content_type?: string
+    raw_text?: string
+    meta?: Record<string, any>
   }>
 }) {
   if (!isSupabaseConfigured()) {
@@ -132,22 +150,44 @@ export async function createCourseFromPayload(payload: {
       return { success: false, error: lessonsError.message }
     }
 
-    // Insert source files if provided
-    if (payload.sourceFiles && payload.sourceFiles.length > 0) {
-      const filesToInsert = payload.sourceFiles.map((file) => ({
+    // Insert sources (new unified table for files and URLs)
+    const sourcesToInsert = []
+
+    // Handle new sources format (preferred)
+    if (payload.sources && payload.sources.length > 0) {
+      sourcesToInsert.push(...payload.sources.map((source) => ({
         course_id: course.id,
-        filename: file.filename,
-        mime: file.mime,
-        text_content: file.text_content || null,
-        storage_path: file.storage_path || null,
-      }))
+        type: source.type,
+        url: source.url || null,
+        content_type: source.content_type || null,
+        raw_text: source.raw_text || null,
+        meta: source.meta || {},
+      })))
+    }
 
-      const { error: filesError } = await supabase
-        .from('source_files')
-        .insert(filesToInsert)
+    // Handle legacy sourceFiles format (backward compatibility)
+    if (payload.sourceFiles && payload.sourceFiles.length > 0) {
+      sourcesToInsert.push(...payload.sourceFiles.map((file) => ({
+        course_id: course.id,
+        type: 'file' as const,
+        url: null,
+        content_type: file.mime,
+        raw_text: file.text_content || null,
+        meta: {
+          filename: file.filename,
+          storage_path: file.storage_path || null,
+        },
+      })))
+    }
 
-      if (filesError) {
-        console.error('Source files error:', filesError)
+    // Insert sources if any
+    if (sourcesToInsert.length > 0) {
+      const { error: sourcesError } = await supabase
+        .from('sources')
+        .insert(sourcesToInsert)
+
+      if (sourcesError) {
+        console.error('Sources insert error:', sourcesError)
         // Non-critical, continue
       }
     }
