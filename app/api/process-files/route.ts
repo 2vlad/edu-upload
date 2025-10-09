@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     const existingCourseJson = formData.get('existingCourse') as string | null
     const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt4o')
     const lessonCountRaw = formData.get('lessonCount') as string | null
-    const lessonCount = lessonCountRaw ? Math.max(1, Math.min(12, parseInt(lessonCountRaw))) : null
+    const lessonCount = lessonCountRaw ? Math.max(1, parseInt(lessonCountRaw)) : null
     const thesisTemplate = (formData.get('thesisTemplate') as string | null)?.trim() || null
 
     const hasImages = files.some(f => f.type?.startsWith('image/'))
@@ -396,7 +396,7 @@ export async function POST(request: NextRequest) {
               expansion_tips: z.array(z.string()).min(2).max(3).optional().describe('Советы по расширению'),
               examples_to_add: z.array(z.string()).min(1).max(2).optional().describe('Примеры'),
             })
-          ).min(lessonCount || 3).max(lessonCount || 12),
+          ),
         }),
       })
       courseStructure = result.object
