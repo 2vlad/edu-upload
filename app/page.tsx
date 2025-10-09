@@ -99,10 +99,12 @@ export default function HomePage() {
   // Optional generation options
   const [lessonCount, setLessonCount] = useState<number | ''>('')
   const [thesisTemplateText, setThesisTemplateText] = useState<string>('')
+  const [thesisTemplateName, setThesisTemplateName] = useState<string>('')
 
   // Upload exactly one file; when existingCourse is provided,
   // server will merge context and return updated course.
   const uploadSingleFile = useCallback(async (file: File, existingCourse?: any) => {
+    // Prepare form data
     const formData = new FormData()
     formData.append('files', file)
     formData.append('modelChoice', modelChoice)
@@ -110,26 +112,53 @@ export default function HomePage() {
     if (lessonCount && Number(lessonCount) > 0) formData.append('lessonCount', String(lessonCount))
     if (thesisTemplateText) formData.append('thesisTemplate', thesisTemplateText)
 
-    const res = await fetch('/api/process-files', { method: 'POST', body: formData })
-    const ct = res.headers.get('content-type') || ''
-    const payload = ct.includes('application/json') ? await res.json() : { message: await res.text() }
-    if (!res.ok) {
-      const reason = res.headers.get('X-Auth-Reason')
-      if (res.status === 401 && reason === 'anonymous-signin-disabled') {
-        throw new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.')
+    // Compute weighted upload progress (real bytes)
+    const weightBefore = 0 // upload — первый этап в визуальном цикле при создании
+    const weightUpload = STAGE_WEIGHTS.upload
+
+    const payload = await new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/process-files', true)
+      xhr.responseType = 'json'
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return
+        const frac = Math.min(1, e.loaded / Math.max(1, e.total))
+        const percent = (weightBefore + frac * weightUpload) * 100
+        setProcessingProgress(Math.min(99, percent))
+        setProcessingMessage('Загрузка файлов...')
       }
-      if (res.status === 413) {
-        throw new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.')
+
+      xhr.onload = () => {
+        const ct = xhr.getResponseHeader('content-type') || ''
+        const json = ct.includes('application/json') ? xhr.response : null
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(json ?? {})
+        } else {
+          const reason = xhr.getResponseHeader('X-Auth-Reason')
+          if (xhr.status === 401 && reason === 'anonymous-signin-disabled') {
+            reject(new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.'))
+            return
+          }
+          if (xhr.status === 413) {
+            reject(new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.'))
+            return
+          }
+          reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
+        }
       }
-      throw new Error(payload?.message || payload?.error || `HTTP ${res.status}`)
-    }
+
+      xhr.onerror = () => reject(new Error('Сеть недоступна'))
+      xhr.send(formData)
+    })
+
     // Optional: log model used
     if ((payload as any)?.metadata?.model) {
       const m = (payload as any).metadata.model
       console.log('✅ Model used:', { requested: m.choice, provider: m.provider, modelId: m.modelId })
     }
     return payload
-  }, [modelChoice, lessonCount, thesisTemplateText])
+  }, [modelChoice, lessonCount, thesisTemplateText, STAGE_WEIGHTS])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -169,9 +198,11 @@ export default function HomePage() {
     try {
       const text = await f.text()
       setThesisTemplateText(text.trim())
+      setThesisTemplateName(f.name)
     } catch (err) {
       console.error('Failed to read template:', err)
       setThesisTemplateText('')
+      setThesisTemplateName('')
       setError('Не удалось прочитать файл шаблона')
     }
   }, [])
@@ -562,12 +593,24 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-3">
               <label className="text-sm text-muted-foreground min-w-40">Шаблон тезисов (опц.)</label>
-              <Input
+              <input
+                id="thesis-template"
                 type="file"
                 accept=".txt,.md"
                 onChange={handleThesisTemplateSelect}
-                className="rounded-[30px] bg-white file:mr-3 file:rounded-[20px] file:border-0 file:bg-white file:text-sm file:px-3 file:py-2"
+                className="sr-only"
               />
+              <label
+                htmlFor="thesis-template"
+                className="w-full md:w-auto cursor-pointer"
+              >
+                <div className="bg-white rounded-[30px] border px-3 py-2 flex items-center gap-3 min-w-[260px]">
+                  <span className="text-sm font-medium whitespace-nowrap">Выбрать файл</span>
+                  <span className="text-sm text-muted-foreground truncate">
+                    {thesisTemplateName || 'Файл не выбран'}
+                  </span>
+                </div>
+              </label>
             </div>
             {thesisTemplateText && (
               <p className="text-xs text-muted-foreground md:col-span-2">Загружен шаблон тезисов. Генерация будет СТРОГО следовать ему.</p>
