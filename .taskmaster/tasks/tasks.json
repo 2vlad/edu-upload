@@ -1128,7 +1128,7 @@
         "dependencies": [
           1
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1136,7 +1136,7 @@
             "description": "Create a new database migration to add course_validations table for storing validation results with proper indexing and foreign key constraints",
             "dependencies": [],
             "details": "Create a new migration file (e.g., 20250108000000_add_course_validations.sql) in supabase/migrations/ that creates the course_validations table with fields: id (uuid, primary key), course_id (uuid, foreign key to courses), validation_type (text: 'fast'|'deep'), status (text: 'pending'|'running'|'completed'|'failed'), results (jsonb for storing validation findings), severity (text: 'info'|'warning'|'error'), started_at, completed_at timestamps, and created_at. Include proper indexes and RLS policies following the existing pattern where users can only access validations for their own courses.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test migration applies correctly, table created with proper constraints, RLS policies work, indexes exist"
           },
           {
@@ -1147,7 +1147,7 @@
               1
             ],
             "details": "Create lib/validation/fast-validators.ts with functions for: validateCourseStructure (checks lesson order, unique titles, required fields), validateOutlineConsistency (ensures lessons match course description/objectives), validateLinks (performs HEAD requests to external URLs with timeout), validatePrerequisites (checks dependency chains), validateContentLength (ensures lessons meet minimum/maximum word counts). Each function should return a structured result with severity level, message, and affected lesson IDs. Include proper error handling and timeout mechanisms.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit tests for each validator function, test edge cases like broken links, missing content, circular dependencies"
           },
           {
@@ -1158,7 +1158,7 @@
               2
             ],
             "details": "Create lib/validation/deep-validators.ts with functions for: validateObjectivesAlignment (checks if lesson content matches stated objectives), validateTermDefinitions (ensures consistent terminology across lessons), validateTransitionSmoothness (analyzes logical flow between lessons), validateEducationalQuality (assesses content depth and clarity). Use the existing OpenAI/Anthropic integration pattern from process-files route. Create structured prompts that return JSON validation results with specific feedback. Include retry logic and fallback mechanisms for API failures.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test LLM validation provides meaningful feedback, handles API errors gracefully, results are consistent and actionable"
           },
           {
@@ -1169,7 +1169,7 @@
               3
             ],
             "details": "Create app/api/courses/[id]/validate/route.ts endpoint that: validates course ownership using ensureAuthServer, accepts mode parameter ('fast'|'deep'), creates validation record in database, runs appropriate validators, streams progress updates via SSE using ReadableStream, stores final results in course_validations table, returns comprehensive validation report. Include proper error handling, timeout management (15 min max), and validation result caching. Follow the existing API patterns from process-files route for model selection and error responses.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test both validation modes work, streaming updates arrive correctly, results stored properly, unauthorized access blocked"
           },
           {
@@ -1180,7 +1180,7 @@
               4
             ],
             "details": "Create components/course-validation/ with: ValidationTrigger (button component with mode selection), ValidationProgress (SSE progress display with spinner), ValidationResults (formatted display of validation findings with severity indicators and actionable suggestions). Integrate these components into the course editor (app/lessons/page.tsx) with proper state management using React hooks. Include loading states, error handling, and result persistence. Style using existing Tailwind patterns and Radix UI components following the codebase conventions.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test validation UI triggers correctly, progress updates display properly, results are readable and actionable, error states handled"
           }
         ]
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T11:13:04.802Z",
+      "updated": "2025-10-09T11:26:23.425Z",
       "description": "Tasks for two context"
     }
   }
