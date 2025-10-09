@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('files') as File[]
     const existingCourseJson = formData.get('existingCourse') as string | null
     const modelChoice = (formData.get('modelChoice') as string | null)?.toLowerCase() || (process.env.DEFAULT_MODEL_CHOICE || 'chatgpt4o')
+    const lessonCountRaw = formData.get('lessonCount') as string | null
+    const lessonCount = lessonCountRaw ? Math.max(1, Math.min(12, parseInt(lessonCountRaw))) : null
+    const thesisTemplate = (formData.get('thesisTemplate') as string | null)?.trim() || null
 
     const hasImages = files.some(f => f.type?.startsWith('image/'))
     if (hasImages) {
@@ -228,14 +231,26 @@ export async function POST(request: NextRequest) {
       `
     } else {
       // Create mode - new course
+      const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–5 уроков.`
+      const templateBlock = thesisTemplate ? `
+        ШАБЛОН ТЕЗИСОВ (СТРОГО ДЛЯ КАЖДОГО УРОКА):
+        ${thesisTemplate}
+        Правила:
+        - Используй ровно эти пункты и их порядок
+        - Не добавляй/не удаляй и не переименовывай пункты
+      ` : ''
+
       prompt = `
-        Создай образовательный курс из текста ниже. Курс должен содержать 3-5 уроков.
+        Создай образовательный курс из текста ниже. ${lessonsReq}
 
         Каждый урок:
         - 150-200 слов (краткий и содержательный)
         - Логическая последовательность
         - Практические примеры
         - 2-3 учебные цели
+        ${thesisTemplate ? '- Тезисы-буллеты строго по шаблону ниже' : ''}
+
+        ${templateBlock}
 
         Используй ТОЛЬКО информацию из текста. Не добавляй информацию извне.
 

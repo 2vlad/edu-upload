@@ -1262,7 +1262,7 @@
         "dependencies": [
           2
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -1270,7 +1270,7 @@
             "description": "Set up the foundation for course export functionality by installing jszip package and creating the API route with proper structure and parameter validation.",
             "dependencies": [],
             "details": "Install jszip package using npm. Create app/api/courses/[id]/export/route.ts file following the existing API patterns from process-files/route.ts. Implement GET handler with courseId parameter extraction, query parameter validation for format (md|txt) and mode (single|multi), and basic response structure. Include proper TypeScript types and error handling following the codebase patterns.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test API route responds correctly, validates parameters, rejects invalid format/mode combinations, handles missing courseId properly"
           },
           {
@@ -1281,7 +1281,7 @@
               1
             ],
             "details": "Use the existing getCourse function from app/actions/courses.ts to retrieve course data with lessons. Implement proper authentication using ensureAuthServer() and verify user ownership or course publication status. Add validation to ensure course exists and has lessons to export. Handle edge cases like empty courses or missing data following the established error handling patterns.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test course retrieval works for valid IDs, rejects unauthorized access, handles non-existent courses, validates lesson data exists"
           },
           {
@@ -1292,7 +1292,7 @@
               2
             ],
             "details": "Create formatAsMarkdown() and formatAsText() functions that convert CourseWithLessons data into properly formatted strings. For markdown: include YAML frontmatter with course metadata (title, author, level, language, tone, lesson count, validation status), format lessons with proper headers and structure. For text: create clean plain text version without markdown syntax. Handle special characters escaping and UTF-8 encoding properly.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Test both formats generate correctly structured output, metadata included properly, special characters escaped, UTF-8 encoding preserved"
           },
           {
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T12:31:22.401Z",
+      "updated": "2025-10-09T12:38:52.785Z",
       "description": "Tasks for two context"
     }
   }

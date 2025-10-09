@@ -96,6 +96,9 @@ export default function HomePage() {
   const router = useRouter()
   const { user, isAnonymous } = useAuth()
   const { toast } = useToast()
+  // Optional generation options
+  const [lessonCount, setLessonCount] = useState<number | ''>('')
+  const [thesisTemplateText, setThesisTemplateText] = useState<string>('')
 
   // Upload exactly one file; when existingCourse is provided,
   // server will merge context and return updated course.
@@ -104,6 +107,8 @@ export default function HomePage() {
     formData.append('files', file)
     formData.append('modelChoice', modelChoice)
     if (existingCourse) formData.append('existingCourse', JSON.stringify(existingCourse))
+    if (lessonCount && Number(lessonCount) > 0) formData.append('lessonCount', String(lessonCount))
+    if (thesisTemplateText) formData.append('thesisTemplate', thesisTemplateText)
 
     const res = await fetch('/api/process-files', { method: 'POST', body: formData })
     const ct = res.headers.get('content-type') || ''
@@ -124,7 +129,7 @@ export default function HomePage() {
       console.log('✅ Model used:', { requested: m.choice, provider: m.provider, modelId: m.modelId })
     }
     return payload
-  }, [modelChoice])
+  }, [modelChoice, lessonCount, thesisTemplateText])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -154,6 +159,20 @@ export default function HomePage() {
         setError('Некоторые файлы не поддерживаются и были пропущены')
       }
       setFiles((prev) => [...prev, ...selectedFiles])
+    }
+  }, [])
+
+  // Thesis template selector
+  const handleThesisTemplateSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    try {
+      const text = await f.text()
+      setThesisTemplateText(text.trim())
+    } catch (err) {
+      console.error('Failed to read template:', err)
+      setThesisTemplateText('')
+      setError('Не удалось прочитать файл шаблона')
     }
   }, [])
 
@@ -521,6 +540,38 @@ export default function HomePage() {
                 <SelectItem value="sonnet4">Claude Sonnet 4 (Anthropic)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Optional generation options */}
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground min-w-40">Количество уроков (опц.)</label>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                value={lessonCount}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === '') setLessonCount('')
+                  else setLessonCount(Math.max(1, Math.min(12, Number(v))))
+                }}
+                className="rounded-[30px] w-full"
+                placeholder="например, 5"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground min-w-40">Шаблон тезисов (опц.)</label>
+              <input
+                type="file"
+                accept=".txt,.md"
+                onChange={handleThesisTemplateSelect}
+                className="text-sm"
+              />
+            </div>
+            {thesisTemplateText && (
+              <p className="text-xs text-muted-foreground md:col-span-2">Загружен шаблон тезисов. Генерация будет СТРОГО следовать ему.</p>
+            )}
           </div>
 
           {/* Tabs for Files and Links */}
