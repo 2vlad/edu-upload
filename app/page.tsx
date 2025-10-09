@@ -584,7 +584,6 @@ export default function HomePage() {
                   size="lg"
                   progress={processingProgress}
                   label={processingMessage}
-                  indeterminate
                 />
                 {processingProgress === 100 && (
                   <div className="absolute inset-0 flex items-center justify-center">
