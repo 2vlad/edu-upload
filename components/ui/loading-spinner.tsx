@@ -169,10 +169,12 @@ export function CircularProgress({
         
         {/* Center content */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-2xl font-semibold tabular-nums">
-            {Math.round(clamped)}%
-          </span>
-      </div>
+          {!indeterminate && (
+            <span className="text-2xl font-semibold tabular-nums">
+              {Math.round(clamped)}%
+            </span>
+          )}
+        </div>
       </div>
       
       {label && (

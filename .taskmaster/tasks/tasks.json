@@ -1061,7 +1061,7 @@
         "dependencies": [
           4
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1069,7 +1069,7 @@
             "description": "Implement a tabs component with 'Files' and 'Links' sections using Radix UI tabs primitive to provide toggle functionality between file upload and URL input interfaces",
             "dependencies": [],
             "details": "Use the existing Tabs component from /components/ui/tabs.tsx to create a TabsList with two TabsTrigger elements for 'Files' and 'Links'. Style with project's rounded design (rounded-[30px] for primary elements). Position above the existing upload area in app/page.tsx. Set 'Files' as default active tab to maintain existing user experience.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test tab switching works correctly, default tab is Files, styling matches existing design system"
           },
           {
@@ -1080,7 +1080,7 @@
               1
             ],
             "details": "Create a new component for the Links tab content featuring: URL input field with placeholder text, real-time URL validation using browser URL constructor, Extract button that triggers URL processing API call. Use existing Input component from /components/ui/input.tsx and Button component with rounded-[30px] styling. Add appropriate icons from lucide-react (Link, Plus) to match existing file upload interface design.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test URL validation works, Extract button is only enabled for valid URLs, error states display correctly"
           },
           {
@@ -1091,7 +1091,7 @@
               2
             ],
             "details": "Design and implement URL preview cards using Card component from /components/ui/card.tsx. Display extracted metadata: page title, domain name, content excerpt (truncated to ~150 characters), favicon if available. Include remove button with trash icon from lucide-react. Style cards consistently with existing file preview cards in app/page.tsx (rounded-[30px], bg-muted). Implement loading state while URL metadata is being extracted.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test preview cards display correct metadata, remove functionality works, loading states show appropriately"
           },
           {
@@ -1102,7 +1102,7 @@
               3
             ],
             "details": "Add useState for URLs array alongside existing files state in app/page.tsx. Implement addUrl, removeUrl functions similar to existing file management. Add validation to enforce 20 URL maximum limit with user-friendly error messaging using existing error state. Display URL count (e.g., 'Added URLs (5/20)') similar to existing 'Выбранные файлы' section. Ensure URLs persist in component state until course creation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test URL limit enforcement works, URL count displays correctly, state management functions properly"
           },
           {
@@ -1113,7 +1113,7 @@
               4
             ],
             "details": "Update handleCreateCourse function in app/page.tsx to append URLs to FormData alongside files. Modify processing stages to account for URL extraction time (add to predicted durations). Update progress tracking to show appropriate messages for URL processing. Ensure existing /api/process-files/route.ts can handle URLs in request. Update course creation button to be enabled when either files OR URLs are present (files.length > 0 || urls.length > 0).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test course creation works with URLs only, mixed files and URLs, progress tracking shows URL processing steps"
           }
         ]
@@ -1128,7 +1128,7 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T08:48:12.599Z",
+      "updated": "2025-10-09T11:13:04.802Z",
       "description": "Tasks for two context"
     }
   }
