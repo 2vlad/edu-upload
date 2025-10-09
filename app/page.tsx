@@ -6,7 +6,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Upload, FileText, ArrowRight, Sparkles, Image as ImageIcon, Code, File, Link as LinkIcon, Loader2, X, ExternalLink } from "lucide-react"
 import { CircularProgress } from "@/components/ui/loading-spinner"
 import {
   Select,
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AuthButton } from "@/components/AuthButton"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -37,6 +39,18 @@ const SUPPORTED_MIME_TYPES = [
 
 const SUPPORTED_EXTENSIONS = '.pdf,.docx,.doc,.md,.txt,.rtf,.html,.png,.jpg,.jpeg,.webp,.gif'
 
+const MAX_URLS = 20
+
+// URL source type
+interface URLSource {
+  id: string
+  url: string
+  title: string
+  domain: string
+  excerpt: string
+  wordCount: number
+}
+
 // Get icon based on file type
 const getFileIcon = (file: File) => {
   if (file.type.startsWith('image/')) {
@@ -58,6 +72,9 @@ const isSupportedFile = (file: File): boolean => {
 
 export default function HomePage() {
   const [files, setFiles] = useState<File[]>([])
+  const [urls, setUrls] = useState<URLSource[]>([])
+  const [urlInput, setUrlInput] = useState('')
+  const [isExtractingUrl, setIsExtractingUrl] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingProgress, setProcessingProgress] = useState(0)
@@ -142,6 +159,89 @@ export default function HomePage() {
 
   const removeFile = useCallback((index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index))
+  }, [])
+
+  // URL validation helper
+  const isValidUrl = useCallback((url: string): boolean => {
+    try {
+      const urlObj = new URL(url)
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:'
+    } catch {
+      return false
+    }
+  }, [])
+
+  // Extract URL content
+  const handleExtractUrl = useCallback(async () => {
+    if (!urlInput.trim() || !isValidUrl(urlInput.trim())) {
+      toast({
+        title: "Недействительный URL",
+        description: "Пожалуйста, введите правильный HTTP или HTTPS URL",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (urls.length >= MAX_URLS) {
+      toast({
+        title: "Лимит достигнут",
+        description: `Максимум ${MAX_URLS} ссылок на курс`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsExtractingUrl(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/sources/ingest-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput.trim() }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Не удалось извлечь контент из URL')
+      }
+
+      const data = await response.json()
+
+      const urlObj = new URL(urlInput.trim())
+      const domain = urlObj.hostname
+
+      const newUrlSource: URLSource = {
+        id: crypto.randomUUID(),
+        url: urlInput.trim(),
+        title: data.title || 'URL Source',
+        domain,
+        excerpt: data.text?.slice(0, 150) + (data.text?.length > 150 ? '...' : ''),
+        wordCount: data.wordCount || 0,
+      }
+
+      setUrls((prev) => [...prev, newUrlSource])
+      setUrlInput('')
+
+      toast({
+        title: "URL добавлен",
+        description: `Извлечено ${data.wordCount} слов из ${domain}`,
+      })
+    } catch (error: any) {
+      console.error('Error extracting URL:', error)
+      setError(error.message || 'Не удалось извлечь контент из URL')
+      toast({
+        title: "Ошибка",
+        description: error.message || 'Не удалось извлечь контент из URL',
+        variant: "destructive",
+      })
+    } finally {
+      setIsExtractingUrl(false)
+    }
+  }, [urlInput, urls.length, isValidUrl, toast])
+
+  const removeUrl = useCallback((id: string) => {
+    setUrls((prev) => prev.filter((url) => url.id !== id))
   }, [])
 
   // Stage labels and weights
@@ -247,7 +347,7 @@ export default function HomePage() {
   }, [isProcessing, stage, predicted, STAGE_ORDER, STAGE_WEIGHTS, stageLabel])
 
   const handleCreateCourse = async () => {
-    if (files.length === 0) return
+    if (files.length === 0 && urls.length === 0) return
 
     setIsProcessing(true)
     setError(null)
@@ -384,7 +484,10 @@ export default function HomePage() {
               
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  {files.length} {files.length === 1 ? 'файл' : 'файла'} обрабатывается
+                  {files.length > 0 && `${files.length} ${files.length === 1 ? 'файл' : 'файлов'}`}
+                  {files.length > 0 && urls.length > 0 && ' и '}
+                  {urls.length > 0 && `${urls.length} ${urls.length === 1 ? 'ссылка' : 'ссылок'}`}
+                  {' обрабатывается'}
                 </p>
               </div>
             </div>
@@ -422,27 +525,87 @@ export default function HomePage() {
             </Select>
           </div>
 
-          <div
-            className={`border-2 border-dashed rounded-[30px] p-12 text-center transition-colors ${
-              isDragOver ? "border-primary bg-accent" : "border-border hover:border-primary/50"
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <Upload className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
-            <h3 className="text-xl font-semibold mb-2">Перетащите файлы сюда</h3>
-            <p className="text-muted-foreground mb-6">
-              Поддерживаются PDF, DOCX, MD, TXT, RTF, HTML и изображения
-            </p>
+          {/* Tabs for Files and Links */}
+          <Tabs defaultValue="files" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6 rounded-[30px]">
+              <TabsTrigger value="files" className="rounded-[25px]">Файлы</TabsTrigger>
+              <TabsTrigger value="links" className="rounded-[25px]">Ссылки</TabsTrigger>
+            </TabsList>
 
-            <input type="file" multiple accept={SUPPORTED_EXTENSIONS} onChange={handleFileSelect} className="hidden" id="file-upload" />
-            <label htmlFor="file-upload">
-              <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
-                <span>Выбрать файлы</span>
-              </Button>
-            </label>
-          </div>
+            {/* Files Tab */}
+            <TabsContent value="files">
+              <div
+                className={`border-2 border-dashed rounded-[30px] p-12 text-center transition-colors ${
+                  isDragOver ? "border-primary bg-accent" : "border-border hover:border-primary/50"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+              >
+                <Upload className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2">Перетащите файлы сюда</h3>
+                <p className="text-muted-foreground mb-6">
+                  Поддерживаются PDF, DOCX, MD, TXT, RTF, HTML и изображения
+                </p>
+
+                <input type="file" multiple accept={SUPPORTED_EXTENSIONS} onChange={handleFileSelect} className="hidden" id="file-upload" />
+                <label htmlFor="file-upload">
+                  <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
+                    <span>Выбрать файлы</span>
+                  </Button>
+                </label>
+              </div>
+            </TabsContent>
+
+            {/* Links Tab */}
+            <TabsContent value="links">
+              <div className="border-2 border-dashed rounded-[30px] p-12">
+                <LinkIcon className="w-16 h-16 mx-auto mb-6 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mb-2 text-center">Добавить ссылку</h3>
+                <p className="text-muted-foreground mb-6 text-center">
+                  Извлеките контент из веб-страниц (до {MAX_URLS} ссылок)
+                </p>
+
+                <div className="flex gap-3 max-w-2xl mx-auto">
+                  <Input
+                    type="url"
+                    placeholder="https://example.com/article"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !isExtractingUrl) {
+                        handleExtractUrl()
+                      }
+                    }}
+                    disabled={isExtractingUrl || urls.length >= MAX_URLS}
+                    className="rounded-[30px]"
+                  />
+                  <Button
+                    onClick={handleExtractUrl}
+                    disabled={!urlInput.trim() || isExtractingUrl || urls.length >= MAX_URLS || !isValidUrl(urlInput.trim())}
+                    className="rounded-[30px] whitespace-nowrap"
+                  >
+                    {isExtractingUrl ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Извлечение...
+                      </>
+                    ) : (
+                      'Извлечь'
+                    )}
+                  </Button>
+                </div>
+
+                {urls.length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-sm text-muted-foreground text-center mb-3">
+                      Добавленные ссылки ({urls.length}/{MAX_URLS})
+                    </p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </Card>
 
         {error && (
@@ -480,10 +643,54 @@ export default function HomePage() {
           </Card>
         )}
 
+        {urls.length > 0 && (
+          <Card className="p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Добавленные ссылки ({urls.length}/{MAX_URLS})</h3>
+            <div className="space-y-3">
+              {urls.map((urlSource) => (
+                <div key={urlSource.id} className="flex items-start justify-between p-4 bg-muted rounded-[30px] gap-4">
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <LinkIcon className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium truncate">{urlSource.title}</span>
+                        <a
+                          href={urlSource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0"
+                        >
+                          <ExternalLink className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                        </a>
+                      </div>
+                      <span className="text-xs text-muted-foreground mb-1">
+                        {urlSource.domain} • {urlSource.wordCount} слов
+                      </span>
+                      {urlSource.excerpt && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {urlSource.excerpt}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeUrl(urlSource.id)}
+                    className="text-destructive hover:text-destructive rounded-[25px] flex-shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <div className="text-center">
           <Button
             onClick={handleCreateCourse}
-            disabled={files.length === 0 || isProcessing}
+            disabled={(files.length === 0 && urls.length === 0) || isProcessing}
             className="px-8 py-3 text-lg rounded-[30px]"
           >
             {isProcessing ? (
