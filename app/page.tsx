@@ -101,6 +101,17 @@ export default function HomePage() {
   const [thesisTemplateText, setThesisTemplateText] = useState<string>('')
   const [thesisTemplateName, setThesisTemplateName] = useState<string>('')
 
+  // Stage labels and weights - defined early for use in callbacks
+  const STAGE_WEIGHTS: Record<Exclude<Stage, 'idle' | 'done'>, number> = useMemo(() => ({
+    upload: 0.18,
+    extract: 0.12,
+    analyze: 0.18,
+    generate: 0.45,
+    finalize: 0.07,
+  }), [])
+
+  const STAGE_ORDER: Exclude<Stage, 'idle' | 'done'>[] = useMemo(() => ['upload', 'extract', 'analyze', 'generate', 'finalize'], [])
+
   // Upload exactly one file; when existingCourse is provided,
   // server will merge context and return updated course.
   const uploadSingleFile = useCallback(async (file: File, existingCourse?: any) => {
@@ -121,29 +132,43 @@ export default function HomePage() {
       xhr.open('POST', '/api/process-files', true)
       xhr.responseType = 'json'
 
+      console.debug('[upload:start]', { name: file.name, size: file.size, type: file.type })
+
       xhr.upload.onprogress = (e) => {
         if (!e.lengthComputable) return
         const frac = Math.min(1, e.loaded / Math.max(1, e.total))
         const percent = (weightBefore + frac * weightUpload) * 100
         setProcessingProgress(Math.min(99, percent))
         setProcessingMessage('Загрузка файлов...')
+        console.debug('[upload:progress]', {
+          loaded: e.loaded,
+          total: e.total,
+          frac: Number(frac.toFixed(3)),
+          visualPercent: Number(percent.toFixed(1))
+        })
       }
 
       xhr.onload = () => {
         const ct = xhr.getResponseHeader('content-type') || ''
         const json = ct.includes('application/json') ? xhr.response : null
+        console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json })
         if (xhr.status >= 200 && xhr.status < 300) {
+          // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
+          setProcessingProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev))
           resolve(json ?? {})
         } else {
           const reason = xhr.getResponseHeader('X-Auth-Reason')
           if (xhr.status === 401 && reason === 'anonymous-signin-disabled') {
+            console.warn('[upload:error] anonymous-signin-disabled')
             reject(new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.'))
             return
           }
           if (xhr.status === 413) {
+            console.warn('[upload:error] HTTP 413')
             reject(new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.'))
             return
           }
+          console.error('[upload:error]', { status: xhr.status, json })
           reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
         }
       }
@@ -294,17 +319,6 @@ export default function HomePage() {
     setUrls((prev) => prev.filter((url) => url.id !== id))
   }, [])
 
-  // Stage labels and weights
-  const STAGE_WEIGHTS: Record<Exclude<Stage, 'idle' | 'done'>, number> = useMemo(() => ({
-    upload: 0.18,
-    extract: 0.12,
-    analyze: 0.18,
-    generate: 0.45,
-    finalize: 0.07,
-  }), [])
-
-  const STAGE_ORDER: Exclude<Stage, 'idle' | 'done'>[] = ['upload', 'extract', 'analyze', 'generate', 'finalize']
-
   const stageLabel = useMemo(() => {
     switch (stage) {
       case 'upload': return 'Загрузка файлов...'
@@ -418,6 +432,7 @@ export default function HomePage() {
         if (file.size > maxBytes) {
           throw new Error(`Файл «${file.name}» слишком большой (${(file.size/1024/1024).toFixed(1)} MB). Лимит запроса ~${maxMb} MB.`)
         }
+        console.debug('[pipeline] process file', { index: i, name: file.name, size: file.size })
         setProcessingMessage(`Обработка файла ${i + 1} из ${files.length}…`)
         if (i === 0) {
           aggregated = await uploadSingleFile(file)
@@ -426,11 +441,12 @@ export default function HomePage() {
           const { mergedCourse } = mergeCourseUpdates(aggregated, part)
           aggregated = mergedCourse
         }
-        if (stage === 'upload') { setStage('extract'); stageStartRef.current = null }
+        if (stage === 'upload') { setStage('extract'); stageStartRef.current = null; console.debug('[stage] -> extract') }
       }
       const data = aggregated
 
       // Set progress to 100% when done
+      console.debug('[pipeline] done, setting progress 100')
       setProcessingProgress(100)
       setProcessingMessage("Готово!")
       setStage('done')
