@@ -199,10 +199,12 @@ export default function OutlinePage() {
     }
     setIsPublishing(true)
     try {
+      const existingSlug = (() => { try { return localStorage.getItem('draftCourseSlug') || undefined } catch { return undefined } })()
       const result = await publishCourse({
         title: courseData.title,
         description: courseData.description,
         lessons: courseData.lessons,
+        existingSlug,
       })
       if (result.success && result.slug) {
         toast({ title: 'Курс опубликован', description: 'Курс сохранен в ваш профиль' })

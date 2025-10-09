@@ -228,93 +228,27 @@ export default function HomePage() {
     stageStartRef.current = performance.now()
 
     try {
-      const formData = new FormData()
-      files.forEach((file) => {
-        formData.append("files", file)
-      })
-      // include model choice
-      formData.append('modelChoice', modelChoice)
+      // Sequential upload to avoid 413 and to support large batches
+      const maxMb = Number(process.env.NEXT_PUBLIC_MAX_UPLOAD_MB || '4.5')
+      const maxBytes = Math.floor(maxMb * 1024 * 1024 * 0.92)
 
-      const data = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', '/api/process-files', true)
-        xhr.responseType = 'json'
-
-        uploadBytesRef.current = { loaded: 0, total: 0, startedAt: performance.now(), lastTs: performance.now(), lastLoaded: 0, avgBps: 0 }
-        advancedAfterUploadRef.current = false
-
-        xhr.upload.onprogress = (e) => {
-          if (!e.lengthComputable) return
-          const now = performance.now()
-          const deltaBytes = e.loaded - uploadBytesRef.current.lastLoaded
-          const deltaMs = Math.max(1, now - uploadBytesRef.current.lastTs)
-          const instBps = (deltaBytes * 1000) / deltaMs
-          uploadBytesRef.current.avgBps = uploadBytesRef.current.avgBps
-            ? uploadBytesRef.current.avgBps * 0.7 + instBps * 0.3
-            : instBps
-          uploadBytesRef.current.lastTs = now
-          uploadBytesRef.current.lastLoaded = e.loaded
-          uploadBytesRef.current.loaded = e.loaded
-          uploadBytesRef.current.total = e.total
-
-          const uploadedFrac = e.total ? e.loaded / e.total : 0
-          const uploadProgress = uploadedFrac * STAGE_WEIGHTS.upload * 100
-          const display = Math.min(99, uploadProgress)
-          setProcessingProgress(display)
-          setProcessingMessage('Загрузка файлов...')
-
-          const remainingUploadBytes = Math.max(0, e.total - e.loaded)
-          const remainingUploadMs = uploadBytesRef.current.avgBps > 0
-            ? Math.round((remainingUploadBytes / uploadBytesRef.current.avgBps) * 1000)
-            : 0
-          const remainingAfterUpload = predicted.extract + predicted.analyze + predicted.generate + predicted.finalize
-          setEtaMs(remainingUploadMs + remainingAfterUpload)
-
-          // Switch to next stage as soon as upload finishes
-          if (e.loaded >= e.total && !advancedAfterUploadRef.current) {
-            advancedAfterUploadRef.current = true
-            setStage('extract')
-            stageStartRef.current = null
-          }
+      let aggregated: any | null = null
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        if (file.size > maxBytes) {
+          throw new Error(`Файл «${file.name}» слишком большой (${(file.size/1024/1024).toFixed(1)} MB). Лимит запроса ~${maxMb} MB.`)
         }
-
-        // In some browsers onprogress may not reach 100%; ensure advance
-        xhr.upload.onloadend = () => {
-          if (!advancedAfterUploadRef.current) {
-            advancedAfterUploadRef.current = true
-            setStage('extract')
-            stageStartRef.current = null
-          }
+        setProcessingMessage(`Обработка файла ${i + 1} из ${files.length}…`)
+        if (i === 0) {
+          aggregated = await uploadSingleFile(file)
+        } else {
+          const part = await uploadSingleFile(file, aggregated)
+          const { mergedCourse } = mergeCourseUpdates(aggregated, part)
+          aggregated = mergedCourse
         }
-
-        xhr.onload = () => {
-          if (stage === 'upload') {
-            setStage('extract')
-            stageStartRef.current = null
-          }
-          try {
-            const json = typeof xhr.response === 'string' ? JSON.parse(xhr.response) : xhr.response
-            if (xhr.status >= 200 && xhr.status < 300) {
-              // Log model metadata to verify correct model was used
-              if (json?.metadata?.model) {
-                console.log('✅ Model used:', {
-                  requested: json.metadata.model.choice,
-                  provider: json.metadata.model.provider,
-                  modelId: json.metadata.model.modelId
-                })
-              }
-              resolve(json)
-            }
-            else reject(new Error(json?.message || json?.error || `HTTP ${xhr.status}`))
-          } catch (e) {
-            if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response)
-            else reject(new Error(`HTTP ${xhr.status}`))
-          }
-        }
-
-        xhr.onerror = () => reject(new Error('Сеть недоступна'))
-        xhr.send(formData)
-      })
+        if (stage === 'upload') { setStage('extract'); stageStartRef.current = null }
+      }
+      const data = aggregated
 
       // Set progress to 100% when done
       setProcessingProgress(100)
@@ -348,6 +282,7 @@ export default function HomePage() {
             setTimeout(() => {
               router.push(`/courses/${result.slug}`)
             }, 500)
+            try { localStorage.setItem('draftCourseSlug', result.slug) } catch {}
           } else {
             throw new Error(result.error || "Не удалось сохранить курс")
           }

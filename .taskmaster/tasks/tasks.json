@@ -794,7 +794,7 @@
         "testStrategy": "Test admin users can access all courses, regular users only see their own courses, RLS policies work correctly in Supabase dashboard and application",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -802,7 +802,7 @@
             "description": "Create a new migration file to add the profiles table with user_id reference, role column (user/admin enum), and proper indexes",
             "dependencies": [],
             "details": "Create migration file 20250108000000_create_profiles_table.sql that adds a profiles table with: id (uuid primary key), user_id (uuid references auth.users), role (enum type 'user' or 'admin' with default 'user'), created_at and updated_at timestamps. Include foreign key constraint with cascade delete and create index on user_id for performance.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test migration applies cleanly, profiles table exists with correct schema, foreign key constraints work, indexes are created properly"
           },
           {
@@ -813,7 +813,7 @@
               1
             ],
             "details": "Update the existing RLS policies in courses table to include admin role checks. Modify 'Users can view own courses', 'Users can update own courses', and 'Users can delete own courses' policies to also allow access when user has admin role in profiles table. Use EXISTS subquery to check if auth.uid() has role='admin' in profiles table.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin users can view/edit/delete any course, regular users still only see their own courses, published courses remain publicly viewable"
           },
           {
@@ -824,7 +824,7 @@
               1
             ],
             "details": "Update lessons table RLS policies to include admin role checks. Modify 'Users can view own lessons', 'Users can insert own lessons', 'Users can update own lessons', and 'Users can delete own lessons' policies to also grant access when user has admin role. Use EXISTS subquery to check profiles table for admin role.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin users can manage lessons from any course, regular users still limited to their own course lessons, published lesson access unchanged"
           },
           {
@@ -835,7 +835,7 @@
               1
             ],
             "details": "Update all RLS policies on source_files and course_assets tables to include admin role checks. For each table, modify view, insert, update, and delete policies to also allow access when user has admin role in profiles table. Ensure published course assets remain publicly viewable.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin users can manage source files and assets from any course, regular users still limited to their own courses, public asset access preserved"
           },
           {
@@ -846,7 +846,7 @@
               1
             ],
             "details": "Create function is_admin(user_uuid) that returns boolean by checking if user has admin role in profiles table. Create function get_user_role(user_uuid) that returns the user's role. Add indexes on profiles(role) and profiles(user_id, role) for performance. These functions will be used in RLS policies and can be reused across the application.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test helper functions return correct values, performance is acceptable with indexes, functions can be used in RLS policy conditions successfully"
           }
         ]
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-08T19:58:28.230Z",
+      "updated": "2025-10-09T08:25:15.613Z",
       "description": "Tasks for two context"
     }
   }

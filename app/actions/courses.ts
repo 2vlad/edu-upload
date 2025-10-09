@@ -289,8 +289,28 @@ export async function getCourseBySlug(
       .eq('published', true)
       .single()
 
-    if (courseError) {
-      console.error('Error fetching course:', courseError)
+    if (courseError || !course) {
+      // Fallback: if user is owner and course is draft, allow access
+      const { data: session } = await supabase.auth.getUser()
+      const ownerId = session?.user?.id
+      if (ownerId) {
+        const draft = await supabase
+          .from('courses')
+          .select('*')
+          .eq('slug', slug)
+          .eq('user_id', ownerId)
+          .single()
+        if (!draft.error && draft.data) {
+          // Fetch lessons and return
+          const { data: lessons } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('course_id', draft.data.id)
+            .order('order_index', { ascending: true })
+          return { success: true, course: { ...(draft.data as any), lessons: lessons || [] } }
+        }
+      }
+      console.error('Error fetching course:', courseError || { message: 'not found' })
       return { success: false, error: 'Course not found' }
     }
 
