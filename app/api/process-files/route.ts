@@ -206,20 +206,15 @@ export async function POST(request: NextRequest) {
           const textForGeneration = chunks[0]
 
           // Model selection (short, mirrors legacy branch)
+          const fallbackModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
           let selectedProvider: 'openai' | 'anthropic' = 'openai'
-          let selectedModelId: string = 'gpt-4o'
+          let selectedModelId: string = fallbackModelId
           let model: any
           let fallbackNotice: string | null = null
-          if (modelChoice === 'chatgpt4o') { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+          if (modelChoice === 'chatgpt4o') { selectedProvider = 'openai'; selectedModelId = fallbackModelId; model = openai(selectedModelId) }
           else if (modelChoice === 'chatgpt5') {
             selectedProvider = 'openai'
-            const configured = process.env.OPENAI_MODEL_GPT_5?.trim()
-            if (configured && configured.toLowerCase() !== 'gpt-5') {
-              selectedModelId = configured
-            } else {
-              selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
-              fallbackNotice = 'GPT-5 недоступна в текущей конфигурации, используем GPT-4o.'
-            }
+            selectedModelId = process.env.OPENAI_MODEL_GPT_5?.trim() || 'gpt-5'
             model = openai(selectedModelId)
           }
           else if (modelChoice === 'sonnet4') {
@@ -230,15 +225,35 @@ export async function POST(request: NextRequest) {
                 const createAnthropic = (mod as any).createAnthropic
                 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
                 selectedProvider = 'anthropic'; selectedModelId = process.env.ANTHROPIC_MODEL_SONNET_4 || 'claude-sonnet-4-20250514'; model = anthropic(selectedModelId)
-              } catch { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
-            } else { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
-          } else { selectedProvider = 'openai'; selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'; model = openai(selectedModelId) }
+              } catch { selectedProvider = 'openai'; selectedModelId = fallbackModelId; model = openai(selectedModelId) }
+            } else { selectedProvider = 'openai'; selectedModelId = fallbackModelId; model = openai(selectedModelId) }
+          } else { selectedProvider = 'openai'; selectedModelId = fallbackModelId; model = openai(selectedModelId) }
+
+          const isRecoverableModelError = (err: unknown) => {
+            const message = err instanceof Error ? err.message : String(err)
+            const normalized = message.toLowerCase()
+            return normalized.includes('no object generated')
+              || normalized.includes('did not return a response')
+              || (normalized.includes('model') && (normalized.includes('not found') || normalized.includes('does not exist') || normalized.includes('unsupported') || normalized.includes('invalid')))
+          }
+
+          const runWithFallback = async <T>(operation: string, task: () => Promise<T>) => {
+            try {
+              return await task()
+            } catch (error) {
+              if (modelChoice === 'chatgpt5' && selectedModelId !== fallbackModelId && isRecoverableModelError(error)) {
+                fallbackNotice = `Не удалось получить ответ от модели ${selectedModelId}: ${error instanceof Error ? error.message : String(error)}. Переключаемся на ${fallbackModelId}.`
+                selectedModelId = fallbackModelId
+                model = openai(selectedModelId)
+                await send({ event: 'info', message: fallbackNotice, traceId, operation })
+                log('warn', 'Model fallback after failure', { operation, requested: modelChoice, fallbackModelId, error: error instanceof Error ? error.message : String(error) })
+                return await task()
+              }
+              throw error
+            }
+          }
 
           await send({ event: 'stage', stage: 'generate', substage: existingCourseJson ? 'update' : 'outline' })
-          if (fallbackNotice) {
-            await send({ event: 'info', message: fallbackNotice, traceId })
-            log('warn', 'Model fallback applied', { requested: modelChoice, selectedModelId })
-          }
           log('info', 'Streaming generation phase started', { mode: existingCourseJson ? 'update' : 'create', modelChoice, lessonCount })
 
           let course: any = null
@@ -252,7 +267,7 @@ export async function POST(request: NextRequest) {
               outline: z.array(z.object({ lesson_id: z.string(), title: z.string(), logline: z.string().optional(), bullets: z.array(z.string()).min(1).max(8) })).min(1),
               lessons: z.array(z.object({ id: z.string(), title: z.string(), logline: z.string().optional(), content: z.string().optional(), objectives: z.array(z.string()).optional(), guiding_questions: z.array(z.string()).optional(), expansion_tips: z.array(z.string()).optional(), examples_to_add: z.array(z.string()).optional() })).min(1)
             })
-            const res = await generateObject({ model, prompt, schema, maxOutputTokens: 5000 })
+            const res = await runWithFallback('update-course', () => generateObject({ model, prompt, schema, maxOutputTokens: 5000 }))
             course = res.object
             await send({ event: 'progress', stage: 'generate', substage: 'update', done: 1, total: 1 })
           } else {
@@ -264,7 +279,7 @@ export async function POST(request: NextRequest) {
             const lessonsReq = lessonCount ? `Курс должен содержать РОВНО ${lessonCount} уроков.` : `Курс должен содержать 3–7 уроков.`
             const templateBlock = thesisTemplate ? `\nШАБЛОН ТЕЗИСОВ (СТРОГО):\n${thesisTemplate}\nПравила: используй ровно эти пункты и их порядок.\n` : ''
             const outlinePrompt = `Сделай структуру курса из текста ниже. ${lessonsReq}${templateBlock}\nИспользуй ТОЛЬКО информацию из текста.\n\nТекст:\n${textForGeneration}`
-            const outlineRes = await generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 1200 })
+            const outlineRes = await runWithFallback('generate-outline', () => generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 1200 }))
             const outline = outlineRes.object
             log('info', 'Streaming outline generated', { lessons: outline.outline.length })
             await send({ event: 'progress', stage: 'generate', substage: 'outline', done: 1, total: 1, lessons: outline.outline.length })
@@ -288,7 +303,7 @@ export async function POST(request: NextRequest) {
               log('info', 'Generating lesson', { index: li + 1, title: o.title, lessonId: o.lesson_id })
               const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
               try {
-                const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 })
+                const res = await runWithFallback(`generate-lesson-${li + 1}`, () => generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1200 }))
                 lessons.push(res.object)
                 li++
                 log('info', 'Lesson generated successfully', { index: li, title: o.title, contentLength: res.object?.content?.length || 0 })
@@ -485,8 +500,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Resolve model based on selection
+    const fallbackModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
     let selectedProvider: 'openai' | 'anthropic' = 'openai'
-    let selectedModelId: string = 'gpt-4o'
+    let selectedModelId: string = fallbackModelId
     let model: any
     let fallbackNotice: string | null = null
 
@@ -504,22 +520,16 @@ export async function POST(request: NextRequest) {
     if (modelChoice === 'chatgpt4o') {
       // ChatGPT-4o (fast, reliable)
       selectedProvider = 'openai'
-      selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+      selectedModelId = fallbackModelId
       model = openai(selectedModelId)
       log('info', 'Selected ChatGPT-4o', { modelId: selectedModelId })
     } else if (modelChoice === 'chatgpt5') {
       // ChatGPT-5 (with reasoning)
       selectedProvider = 'openai'
       const configured = process.env.OPENAI_MODEL_GPT_5?.trim()
-      if (configured && configured.toLowerCase() !== 'gpt-5') {
-        selectedModelId = configured
-        log('info', 'Selected ChatGPT-5 (configured override)', { modelId: selectedModelId })
-      } else {
-        selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
-        fallbackNotice = 'GPT-5 недоступна в текущей конфигурации, используем GPT-4o.'
-        log('warn', 'GPT-5 unavailable, falling back to GPT-4o', { fallbackModel: selectedModelId })
-      }
+      selectedModelId = configured || 'gpt-5'
       model = openai(selectedModelId)
+      log('info', 'Selected ChatGPT-5', { modelId: selectedModelId })
     } else if (modelChoice === 'sonnet4') {
       // Claude Sonnet 4 (Anthropic)
       if (process.env.ANTHROPIC_API_KEY) {
@@ -536,20 +546,20 @@ export async function POST(request: NextRequest) {
         } catch (e) {
           log('warn', 'Anthropic SDK not available, falling back to GPT-4o', { error: String(e) })
           selectedProvider = 'openai'
-          selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+          selectedModelId = fallbackModelId
           model = openai(selectedModelId)
         }
       } else {
         log('warn', 'ANTHROPIC_API_KEY not set; using GPT-4o fallback')
         selectedProvider = 'openai'
-        selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+        selectedModelId = fallbackModelId
         model = openai(selectedModelId)
       }
     } else {
       // Default fallback to GPT-4o
       log('warn', 'Unknown model choice, defaulting to GPT-4o', { modelChoice })
       selectedProvider = 'openai'
-      selectedModelId = process.env.OPENAI_MODEL_GPT_4O || 'gpt-4o'
+      selectedModelId = fallbackModelId
       model = openai(selectedModelId)
     }
 
@@ -567,8 +577,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (fallbackNotice) {
-      log('warn', 'Model fallback applied (legacy branch)', { requestedChoice: modelChoice, selectedModelId })
+    const isRecoverableModelError = (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err)
+      const normalized = message.toLowerCase()
+      return normalized.includes('no object generated')
+        || normalized.includes('did not return a response')
+        || (normalized.includes('model') && (normalized.includes('not found') || normalized.includes('does not exist') || normalized.includes('unsupported') || normalized.includes('invalid')))
+    }
+
+    const runWithFallback = async <T>(operation: string, task: () => Promise<T>) => {
+      try {
+        return await task()
+      } catch (error) {
+        if (modelChoice === 'chatgpt5' && selectedModelId !== fallbackModelId && isRecoverableModelError(error)) {
+          fallbackNotice = `Не удалось получить ответ от модели ${selectedModelId}: ${error instanceof Error ? error.message : String(error)}. Переключаемся на ${fallbackModelId}.`
+          selectedModelId = fallbackModelId
+          model = openai(selectedModelId)
+          log('warn', 'Model fallback after failure', { operation, requestedChoice: modelChoice, fallbackModelId, error: error instanceof Error ? error.message : String(error) })
+          return await task()
+        }
+        throw error
+      }
     }
 
     log('info', 'Final model configuration', {
@@ -610,7 +639,7 @@ export async function POST(request: NextRequest) {
         const templateBlock = thesisTemplate ? `\nШАБЛОН ТЕЗИСОВ (СТРОГО ДЛЯ КАЖДОГО УРОКА):\n${thesisTemplate}\nПравила:\n- Используй ровно эти пункты и их порядок\n- Не добавляй/не удаляй и не переименовывай пункты\n` : ''
         const outlinePrompt = `Сделай структуру курса из текста ниже. ${lessonsReq}${templateBlock}\nИспользуй ТОЛЬКО информацию из текста.\n\nТекст:\n${textForGeneration}`
 
-        const outlineRes = await generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 2000 })
+        const outlineRes = await runWithFallback('generate-outline', () => generateObject({ model, prompt: outlinePrompt, schema: outlineSchema, maxOutputTokens: 2000 }))
         const outline = outlineRes.object
         log('info', 'Outline generated (legacy branch)', { lessons: outline.outline.length })
 
@@ -630,7 +659,7 @@ export async function POST(request: NextRequest) {
         for (const o of outline.outline) {
           idx++
           const lessonPrompt = `Сгенерируй детальный урок на русском. Заголовок: "${o.title}". Используй только факты из источника. ${thesisTemplate ? 'Придерживайся заданного шаблона тезисов.' : ''}\n\nИсточник:\n${textForGeneration}`
-          const res = await generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1100 })
+          const res = await runWithFallback(`generate-lesson-${idx}`, () => generateObject({ model, prompt: lessonPrompt, schema: lessonSchema, maxOutputTokens: 1100 }))
           const lesson = res.object
           if (!lesson.id) lesson.id = o.lesson_id
           lessons.push(lesson)
@@ -653,7 +682,7 @@ export async function POST(request: NextRequest) {
           i++
           const updPrompt = `Обнови вспомогательные поля урока (только списки) по новому материалу. Урок: "${l.title}".\nВерни ТОЛЬКО поля guiding_questions (3-8), expansion_tips (3-6), examples_to_add (2-5).\nИсточник:\n${textForGeneration}`
           try {
-            const res = await generateObject({ model, prompt: updPrompt, schema: guideSchema, maxOutputTokens: 400 })
+            const res = await runWithFallback(`update-lesson-${i}`, () => generateObject({ model, prompt: updPrompt, schema: guideSchema, maxOutputTokens: 400 }))
             const g = res.object
             updatedLessons.push({
               ...l,
