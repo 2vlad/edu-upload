@@ -19,6 +19,7 @@ import { AuthButton } from "@/components/AuthButton"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { createCourseFromPayload } from "@/app/actions/courses"
+import { mergeCourseUpdates } from "@/lib/courseUpdates"
 
 // Supported file types
 const SUPPORTED_MIME_TYPES = [
@@ -78,6 +79,35 @@ export default function HomePage() {
   const router = useRouter()
   const { user, isAnonymous } = useAuth()
   const { toast } = useToast()
+
+  // Upload exactly one file; when existingCourse is provided,
+  // server will merge context and return updated course.
+  const uploadSingleFile = useCallback(async (file: File, existingCourse?: any) => {
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('modelChoice', modelChoice)
+    if (existingCourse) formData.append('existingCourse', JSON.stringify(existingCourse))
+
+    const res = await fetch('/api/process-files', { method: 'POST', body: formData })
+    const ct = res.headers.get('content-type') || ''
+    const payload = ct.includes('application/json') ? await res.json() : { message: await res.text() }
+    if (!res.ok) {
+      const reason = res.headers.get('X-Auth-Reason')
+      if (res.status === 401 && reason === 'anonymous-signin-disabled') {
+        throw new Error('Загрузка изображений требует входа в систему. Войдите и попробуйте снова.')
+      }
+      if (res.status === 413) {
+        throw new Error('Размер запроса слишком большой (413). Сожмите файл или загрузите по одному.')
+      }
+      throw new Error(payload?.message || payload?.error || `HTTP ${res.status}`)
+    }
+    // Optional: log model used
+    if ((payload as any)?.metadata?.model) {
+      const m = (payload as any).metadata.model
+      console.log('✅ Model used:', { requested: m.choice, provider: m.provider, modelId: m.modelId })
+    }
+    return payload
+  }, [modelChoice])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()

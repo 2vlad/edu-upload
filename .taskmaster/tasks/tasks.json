@@ -794,7 +794,7 @@
         "testStrategy": "Test admin users can access all courses, regular users only see their own courses, RLS policies work correctly in Supabase dashboard and application",
         "priority": "high",
         "dependencies": [],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -859,7 +859,7 @@
         "testStrategy": "Test tone field accepts valid input, rejects overly long input, sanitizes HTML, persists correctly in database",
         "priority": "medium",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -867,7 +867,7 @@
             "description": "Create a new Supabase migration file to add author_tone, last_validated_at, and last_validation_severity columns to the courses table",
             "dependencies": [],
             "details": "Create a new migration file in supabase/migrations/ directory following the existing naming pattern (timestamp_description.sql). Add author_tone TEXT column, last_validated_at TIMESTAMPTZ column, and last_validation_severity TEXT column with CHECK constraint for severity values (info, warning, error). Include proper indexing for performance.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify migration runs successfully against local Supabase instance and schema matches expected structure"
           },
           {
@@ -878,7 +878,7 @@
               1
             ],
             "details": "Add author_tone?: string | null, last_validated_at?: string | null, and last_validation_severity?: string | null to the Course interface. Ensure the fields are optional to maintain backward compatibility with existing data.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify TypeScript compilation passes and no type errors occur in existing course-related functions"
           },
           {
@@ -889,7 +889,7 @@
               2
             ],
             "details": "Add author_tone?: string to the payload parameter type, implement validation for max 2000 characters, add HTML sanitization using a sanitization library (investigate if DOMPurify or similar is needed), and include the field in the database insert operation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test that valid tone input is accepted and saved, overly long input is rejected, HTML content is properly sanitized"
           },
           {
@@ -900,7 +900,7 @@
               3
             ],
             "details": "Create a utility function to sanitize HTML content using a secure library (check if project already uses one or add dependency like DOMPurify). Implement character length validation (max 2000), strip dangerous HTML tags while preserving safe formatting, and ensure XSS protection.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test sanitization removes script tags and dangerous attributes, preserves safe HTML like <p> and <strong>, validates character count correctly"
           },
           {
@@ -911,7 +911,7 @@
               4
             ],
             "details": "Add author_tone?: string to the patch parameter type in updateCourse function, apply the same validation and sanitization logic as in creation, ensure database update includes the new field, and maintain backward compatibility.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test that existing course updates work without author_tone, new tone values are properly validated and saved, sanitization is applied during updates"
           }
         ]
@@ -924,7 +924,7 @@
         "testStrategy": "Test sources table creation, RLS policies work, file uploads continue working, can store URL source metadata",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -932,7 +932,7 @@
             "description": "Create a new SQL migration file to define the sources table schema with all required fields and constraints",
             "dependencies": [],
             "details": "Create new migration file at supabase/migrations/[timestamp]_create_sources_table.sql with table definition including: id (uuid primary key), course_id (foreign key to courses), type (enum 'file'|'link'), url (text nullable), content_type (text), raw_text (text nullable), meta (jsonb), created_at (timestamptz). Add proper foreign key constraints and indexes for performance.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test migration runs successfully in Supabase, table is created with correct schema, foreign key constraints work properly"
           },
           {
@@ -943,7 +943,7 @@
               1
             ],
             "details": "Add RLS policies to the migration file that mirror the existing patterns: users can view/insert/update/delete sources for their own courses, anyone can view sources for published courses. Use the same auth.uid() checks and course ownership verification as existing tables like source_files and lessons.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test RLS policies allow proper access controls, users can only access their own course sources, published course sources are publicly readable"
           },
           {
@@ -954,7 +954,7 @@
               1
             ],
             "details": "In app/actions/courses.ts, add new Source interface with fields: id, course_id, type, url, content_type, raw_text, meta, created_at. Update createCourseFromPayload function to accept sources array instead of sourceFiles. Keep SourceFile interface for backward compatibility during transition period.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "TypeScript compilation succeeds, interface matches database schema exactly, existing code continues to work"
           },
           {
@@ -966,7 +966,7 @@
               2
             ],
             "details": "Add data migration section to the SQL migration that inserts existing source_files records into sources table with type='file', url=null, content_type=mime, raw_text=text_content. Map storage_path to meta field as jsonb. Ensure all existing data is preserved during migration and foreign key relationships remain intact.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "All existing source_files data successfully migrated to sources table, no data loss, relationships preserved, file upload functionality continues working"
           },
           {
@@ -978,7 +978,7 @@
               4
             ],
             "details": "Update createCourseFromPayload function in app/actions/courses.ts to insert file data into sources table with type='file'. Map existing sourceFiles parameter structure to new sources format. Add backward compatibility layer to handle both old and new data structures during transition. Update any other file handling code to use sources table.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "File uploads work correctly with new sources table, existing file upload functionality preserved, data stored in correct format with proper type field"
           }
         ]
@@ -993,7 +993,7 @@
         "dependencies": [
           3
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1001,7 +1001,7 @@
             "description": "Create the basic API endpoint file structure and implement request validation for URL ingestion including URL format validation, allowed domains checking, and request body schema validation.",
             "dependencies": [],
             "details": "Create app/api/sources/ingest-url/route.ts following the existing API patterns in the codebase. Implement POST handler with request validation using zod schema for URL format checking. Add basic URL validation to ensure proper format and protocol (http/https only). Set up error handling structure consistent with existing API endpoints like process-files.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test with valid and invalid URLs, malformed requests, missing fields, and verify proper error responses"
           },
           {
@@ -1012,7 +1012,7 @@
               1
             ],
             "details": "Create utility functions to fetch and parse robots.txt files from target domains. Check User-Agent permissions and crawl-delay directives. Implement domain allow/deny list functionality with configurable lists (environment variables or config file). Add timeout handling for robots.txt requests (5s timeout). Create helper functions for domain extraction and validation.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test robots.txt parsing with various formats, domain filtering with allowed/blocked lists, and timeout scenarios"
           },
           {
@@ -1023,7 +1023,7 @@
               1
             ],
             "details": "Implement rate limiting using in-memory store or external storage, tracking requests per user/IP with 30 requests/hour limit. Add content-length checking before downloading full content with 200KB limit. Implement request timeout handling with 15s timeout for URL fetching. Add user authentication integration using existing auth patterns from process-files endpoint.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test rate limit enforcement, content size rejection, timeout handling, and proper user identification"
           },
           {
@@ -1035,7 +1035,7 @@
               3
             ],
             "details": "Install @mozilla/readability package. Implement content fetching with proper User-Agent headers and content-type checking. For HTML content, use jsdom to create DOM and @mozilla/readability to extract clean content. For plain text, return content directly. For PDF, integrate with existing PDF parsing from lib/parsers/pdf.ts. Add proper error handling for network issues, parsing failures, and unsupported content types.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test HTML parsing with readability, plain text extraction, PDF processing, and various content types"
           },
           {
@@ -1046,7 +1046,7 @@
               4
             ],
             "details": "Create response format matching the task requirements with title (extracted from HTML title or filename), text content, wordCount calculation, sourceUrl (original URL), and contentType. Integrate with existing ExtractedFile type from lib/parsers/types.ts to maintain consistency with file processing. Add proper error responses for all failure scenarios. Ensure response format is compatible with existing course generation workflow in process-files endpoint.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test response structure consistency, word count accuracy, title extraction, and integration with existing course generation system"
           }
         ]
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T08:25:15.613Z",
+      "updated": "2025-10-09T08:48:12.599Z",
       "description": "Tasks for two context"
     }
   }
