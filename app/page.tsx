@@ -130,7 +130,9 @@ export default function HomePage() {
     const payload = await new Promise<any>((resolve, reject) => {
       const xhr = new XMLHttpRequest()
       xhr.open('POST', '/api/process-files', true)
-      xhr.responseType = 'json'
+      // NDJSON streaming from server; keep default responseType (text)
+      // We'll set a header to opt-in for streaming progress
+      xhr.setRequestHeader('X-Client-Stream', '1')
 
       console.debug('[upload:start]', { name: file.name, size: file.size, type: file.type })
 
@@ -148,9 +150,62 @@ export default function HomePage() {
         })
       }
 
+      // Parse NDJSON events from response stream for real progress after upload
+      let lastIndex = 0
+      let resultData: any = null
+      const stageOrderLocal: Stage[] = ['upload','extract','analyze','generate','finalize'] as any
+      const weightBeforeStage = (st: Stage) => {
+        const idx = stageOrderLocal.indexOf(st)
+        if (idx <= 0) return 0
+        return stageOrderLocal.slice(0, idx).reduce((s, k) => s + (STAGE_WEIGHTS as any)[k] || 0, 0)
+      }
+
+      xhr.onprogress = () => {
+        const text = xhr.responseText || ''
+        const chunk = text.slice(lastIndex)
+        lastIndex = text.length
+        const lines = chunk.split('\n').filter(Boolean)
+        for (const line of lines) {
+          try {
+            const evt = JSON.parse(line)
+            if (evt.event === 'stage') {
+              const st = evt.stage as Stage
+              if (st && st !== 'upload') {
+                setStage(st)
+                const base = weightBeforeStage(st) * 100
+                setProcessingProgress((prev) => Math.max(prev, Math.min(99, base)))
+                setProcessingMessage(st === 'extract' ? 'Извлечение текста...' : st === 'analyze' ? 'Анализ содержимого...' : st === 'generate' ? 'Генерация уроков...' : 'Подготовка курса...')
+                console.debug('[ndjson:stage]', evt)
+              }
+            } else if (evt.event === 'progress') {
+              const st = evt.stage as Stage
+              if (evt.total && typeof evt.done === 'number') {
+                const w = (STAGE_WEIGHTS as any)[st] || 0
+                const before = weightBeforeStage(st)
+                const frac = Math.max(0, Math.min(1, evt.done / evt.total))
+                const percent = Math.min(99, (before + frac * w) * 100)
+                setProcessingProgress(percent)
+                if (st !== stage) setStage(st)
+                console.debug('[ndjson:progress]', { st, done: evt.done, total: evt.total, percent: Number(percent.toFixed(1)) })
+              }
+            } else if (evt.event === 'error') {
+              console.error('[ndjson:error]', evt.message)
+              setError(evt.message || 'Ошибка обработки на сервере')
+            } else if (evt.event === 'complete') {
+              resultData = evt.result
+              setProcessingProgress(100)
+              setStage('done')
+              console.debug('[ndjson:complete]', { durationMs: evt.durationMs })
+            }
+          } catch {
+            // ignore partial line
+          }
+        }
+      }
+
       xhr.onload = () => {
         const ct = xhr.getResponseHeader('content-type') || ''
-        const json = ct.includes('application/json') ? xhr.response : null
+        const json = ct.includes('application/json') ? ((): any => { try { return JSON.parse(xhr.responseText) } catch { return null } })() : null
         console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json })
         if (xhr.status >= 200 && xhr.status < 300) {
           // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
@@ -159,7 +214,8 @@ export default function HomePage() {
           setStage('extract')
           setProcessingMessage('Анализ документов...')
           console.debug('[stage] force -> extract after upload load')
-          resolve(json ?? {})
+          // Prefer streamed final result if present
+          resolve((resultData ?? json ?? {}))
         } else {
           const reason = xhr.getResponseHeader('X-Auth-Reason')
           if (xhr.status === 401 && reason === 'anonymous-signin-disabled') {
