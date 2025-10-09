@@ -531,7 +531,7 @@ export default function HomePage() {
                 try { localStorage.setItem('preferredModel', v) } catch {}
               }}
             >
-              <SelectTrigger className="w-full sm:w-[260px] rounded-[30px]">
+              <SelectTrigger className="w-full sm:w-[260px] rounded-[30px] bg-white">
                 <SelectValue placeholder="Выберите модель" />
               </SelectTrigger>
               <SelectContent>
@@ -556,17 +556,17 @@ export default function HomePage() {
                   if (v === '') setLessonCount('')
                   else setLessonCount(Math.max(1, Math.min(12, Number(v))))
                 }}
-                className="rounded-[30px] w-full"
+                className="rounded-[30px] w-full bg-white"
                 placeholder="например, 5"
               />
             </div>
             <div className="flex items-center gap-3">
               <label className="text-sm text-muted-foreground min-w-40">Шаблон тезисов (опц.)</label>
-              <input
+              <Input
                 type="file"
                 accept=".txt,.md"
                 onChange={handleThesisTemplateSelect}
-                className="text-sm"
+                className="rounded-[30px] bg-white file:mr-3 file:rounded-[20px] file:border-0 file:bg-white file:text-sm file:px-3 file:py-2"
               />
             </div>
             {thesisTemplateText && (
@@ -599,7 +599,7 @@ export default function HomePage() {
 
                 <input type="file" multiple accept={SUPPORTED_EXTENSIONS} onChange={handleFileSelect} className="hidden" id="file-upload" />
                 <label htmlFor="file-upload">
-                  <Button variant="outline" className="cursor-pointer rounded-[30px] bg-transparent" asChild>
+                  <Button variant="outline" className="cursor-pointer rounded-[30px] bg-white" asChild>
                     <span>Выбрать файлы</span>
                   </Button>
                 </label>
@@ -627,7 +627,7 @@ export default function HomePage() {
                       }
                     }}
                     disabled={isExtractingUrl || urls.length >= MAX_URLS}
-                    className="rounded-[30px]"
+                    className="rounded-[30px] bg-white"
                   />
                   <Button
                     onClick={handleExtractUrl}
