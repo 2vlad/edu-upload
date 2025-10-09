@@ -172,6 +172,11 @@ export async function POST(request: NextRequest) {
       }
 
       ;(async () => {
+        // Heartbeat to prevent buffering
+        const heartbeatInterval = setInterval(async () => {
+          try { await writer.write(enc.encode('\n')) } catch {}
+        }, 1000)
+
         try {
           const userId = hasImages ? (await ensureAuthServer())?.user?.id : undefined
           await send({ event: 'stage', stage: 'extract', total: files.length, done: 0, traceId })
@@ -322,8 +327,10 @@ export async function POST(request: NextRequest) {
               model: { choice: modelChoice, provider: selectedProvider, modelId: selectedModelId },
             }
           }, durationMs, traceId })
+          clearInterval(heartbeatInterval)
           await writer.close()
         } catch (e: any) {
+          clearInterval(heartbeatInterval)
           await send({ event: 'error', message: e?.message || String(e), traceId })
           try { await writer.close() } catch {}
         }
@@ -331,10 +338,11 @@ export async function POST(request: NextRequest) {
 
       return new Response(readable, {
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache, no-transform',
           'Connection': 'keep-alive',
           'X-Accel-Buffering': 'no',
+          'Transfer-Encoding': 'chunked',
         }
       })
     }
