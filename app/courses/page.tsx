@@ -9,6 +9,7 @@ export default async function CoursesPage() {
   // Fetch courses from database (Server Component)
   const result = await getMyCourses()
   const dbCourses = result.success ? result.courses || [] : []
+  const isAdmin = result.isAdmin || false
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,9 +28,11 @@ export default async function CoursesPage() {
                 </Button>
               </Link>
               <div>
-                <h1 className="text-3xl font-bold">Мои курсы</h1>
+                <h1 className="text-3xl font-bold">
+                  {isAdmin ? 'Все курсы (Админ)' : 'Мои курсы'}
+                </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Управляйте своими курсами
+                  {isAdmin ? 'Управление всеми курсами пользователей' : 'Управляйте своими курсами'}
                 </p>
               </div>
             </div>
@@ -47,12 +50,14 @@ export default async function CoursesPage() {
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Database Courses Section */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Курсы из профиля</h2>
-          <CoursesList courses={dbCourses} />
+          <h2 className="text-xl font-semibold mb-4">
+            {isAdmin ? 'Все курсы платформы' : 'Курсы из профиля'}
+          </h2>
+          <CoursesList courses={dbCourses} isAdmin={isAdmin} />
         </div>
 
-        {/* Local Drafts Section (Client Component) */}
-        <LocalDraftsSection />
+        {/* Local Drafts Section (Client Component) - hide for admins */}
+        {!isAdmin && <LocalDraftsSection />}
       </div>
     </div>
   )

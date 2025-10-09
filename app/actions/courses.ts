@@ -1,7 +1,7 @@
 'use server'
 
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { ensureAuthServer } from '@/lib/auth-server'
+import { ensureAuthServer, isAdminServer } from '@/lib/auth-server'
 import { isSupabaseConfigured } from '@/lib/supabaseClient'
 import { validateAndSanitizeAuthorTone } from '@/lib/sanitize'
 
@@ -220,10 +220,17 @@ export async function createCourseFromPayload(payload: {
 
 /**
  * Get all courses for current user (for "My Courses" page)
+ * Admin users will see all courses with search/filter capabilities
  */
-export async function getMyCourses(): Promise<{
+export async function getMyCourses(options?: {
+  search?: string
+  authorFilter?: string
+  statusFilter?: 'all' | 'published' | 'draft'
+  validationFilter?: 'all' | 'validated' | 'warning' | 'error' | 'not-validated'
+}): Promise<{
   success: boolean
   courses?: Course[]
+  isAdmin?: boolean
   error?: string
 }> {
   if (!isSupabaseConfigured()) {
@@ -234,8 +241,51 @@ export async function getMyCourses(): Promise<{
     const supabase = createSupabaseServer()
     const session = await ensureAuthServer()
     const userId = session.user.id
+    const isAdmin = await isAdminServer()
 
-    // Strategy: union собственных курсов (все статусы) + всех опубликованных курсов любых пользователей
+    // Admin mode: fetch ALL courses with filters
+    if (isAdmin) {
+      let query = supabase.from('courses').select('*')
+
+      // Apply search filter
+      if (options?.search) {
+        query = query.or(
+          `title.ilike.%${options.search}%,description.ilike.%${options.search}%`
+        )
+      }
+
+      // Apply author filter
+      if (options?.authorFilter) {
+        query = query.eq('user_id', options.authorFilter)
+      }
+
+      // Apply status filter
+      if (options?.statusFilter && options.statusFilter !== 'all') {
+        query = query.eq('published', options.statusFilter === 'published')
+      }
+
+      // Apply validation filter
+      if (options?.validationFilter && options.validationFilter !== 'all') {
+        if (options.validationFilter === 'not-validated') {
+          query = query.is('last_validated_at', null)
+        } else if (options.validationFilter === 'validated') {
+          query = query.not('last_validated_at', 'is', null)
+        } else {
+          query = query.eq('last_validation_severity', options.validationFilter)
+        }
+      }
+
+      const { data, error } = await query.order('updated_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching courses (admin):', error)
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, courses: data || [], isAdmin: true }
+    }
+
+    // Regular user mode: own courses + published courses
     const [own, published] = await Promise.all([
       supabase.from('courses').select('*').eq('user_id', userId),
       supabase.from('courses').select('*').eq('published', true),
@@ -253,7 +303,7 @@ export async function getMyCourses(): Promise<{
       return { success: false, error: err.message }
     }
 
-    return { success: true, courses: merged }
+    return { success: true, courses: merged, isAdmin: false }
   } catch (error) {
     console.error('Unexpected error fetching courses:', error)
     return {

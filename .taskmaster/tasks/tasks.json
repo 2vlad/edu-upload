@@ -1449,7 +1449,7 @@
           "7",
           "9"
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1457,9 +1457,10 @@
             "description": "Extend auth-server utilities to detect admin users from Supabase user metadata and provide admin role checking functions",
             "dependencies": [],
             "details": "Add isAdminUser() function to auth-server.ts that checks user_metadata.role === 'admin' or similar field in Supabase user object. This will be used throughout admin functionality to determine permissions. Also add getCurrentUserRole() function that returns user role string.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test that admin users are correctly identified, regular users return false, and functions work with both authenticated and anonymous users",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:14:14.983Z"
           },
           {
             "id": 2,
@@ -1469,9 +1470,10 @@
               1
             ],
             "details": "Modify getMyCourses() to accept optional isAdmin parameter. When true, fetch ALL courses from database with additional fields like author name/email joined from auth.users. Add author information to Course interface. Regular users still see only their own + published courses.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin sees all courses with author info, regular users see only their courses, course data includes owner information for admin view",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:16:29.338Z"
           },
           {
             "id": 3,
@@ -1481,9 +1483,10 @@
               2
             ],
             "details": "Create AdminCoursesFilter component with search input for title/description, dropdown filters for Author, Status (draft/published), validation status. Add debounced search functionality. Filter courses client-side initially, with option to move to server-side for large datasets.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test search works across all courses, filters combine correctly, UI updates responsively, filters persist during session",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:16:30.717Z"
           },
           {
             "id": 4,
@@ -1494,9 +1497,10 @@
               2
             ],
             "details": "Add admin mode prop to CoursesList. When admin: show author name in course cards, add 'Admin View' indicator in header, add admin actions (Validate, Export, Open) to each course card. Display course ownership clearly. Maintain all existing functionality for regular users unchanged.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin sees author info and admin actions, regular users see unchanged interface, all existing functionality still works",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:21:31.476Z"
           },
           {
             "id": 5,
@@ -1506,18 +1510,20 @@
               4
             ],
             "details": "Add three admin action buttons to each course card: Validate (triggers validation API), Export (downloads course), Open (navigates to course view/edit). These actions work on any course regardless of ownership. Handle permissions server-side to ensure only admins can perform these actions.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test admin can validate/export/open any course, actions are hidden from regular users, server-side permission checks prevent unauthorized access",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-10-09T13:21:32.790Z"
           }
-        ]
+        ],
+        "updatedAt": "2025-10-09T13:21:32.790Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-10-09T13:10:29.827Z",
+      "lastModified": "2025-10-09T13:21:32.792Z",
       "taskCount": 10,
-      "completedCount": 9,
+      "completedCount": 10,
       "tags": [
         "two"
       ]

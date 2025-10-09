@@ -25,9 +25,10 @@ import { ExportDropdown } from "@/components/ExportDropdown"
 
 interface CoursesListProps {
   courses: Course[]
+  isAdmin?: boolean
 }
 
-export function CoursesList({ courses }: CoursesListProps) {
+export function CoursesList({ courses, isAdmin = false }: CoursesListProps) {
   const [localCourses, setLocalCourses] = useState(courses)
   const [activeTab, setActiveTab] = useState<'drafts' | 'published'>('drafts')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -221,6 +222,11 @@ export function CoursesList({ courses }: CoursesListProps) {
                         })}
                       </div>
                     )}
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 text-orange-600 font-medium">
+                        Владелец: {course.user_id.substring(0, 8)}...
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-2">
@@ -300,6 +306,11 @@ export function CoursesList({ courses }: CoursesListProps) {
                           addSuffix: true,
                           locale: ru
                         })}
+                      </div>
+                    )}
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 text-orange-600 font-medium">
+                        Владелец: {course.user_id.substring(0, 8)}...
                       </div>
                     )}
                   </div>
