@@ -185,6 +185,18 @@ export async function POST(request: NextRequest) {
     const combinedText = combineExtractedText(documents)
     const combinedChars = combinedText.length
 
+    // Check if combined text is too short
+    if (combinedChars < 100) {
+      log('warn', 'Combined text too short', { combinedChars })
+      return NextResponse.json(
+        {
+          error: 'Текст слишком короткий для создания курса',
+          details: `Найдено только ${combinedChars} символов. Минимум 100 символов требуется для генерации курса.`
+        },
+        { status: 400 }
+      )
+    }
+
     // Check if we need to chunk the text
     // Keep per-request input well under typical TPM limits (~30k) to prevent 429
     const chunks = chunkText(combinedText, 20000)
@@ -424,9 +436,28 @@ export async function POST(request: NextRequest) {
         return res
       }
 
+      // Provide more helpful error messages
+      let userMessage = 'Не удалось сгенерировать курс'
+      let errorDetails = err?.message || 'Unknown error'
+
+      // Check for common error patterns
+      if (err?.message?.includes('API key')) {
+        userMessage = 'Ошибка API ключа'
+        errorDetails = 'Проверьте настройки API ключа OpenAI в переменных окружения'
+      } else if (err?.message?.includes('rate limit')) {
+        userMessage = 'Превышен лимит запросов'
+        errorDetails = 'Пожалуйста, подождите немного и попробуйте снова'
+      } else if (err?.message?.includes('timeout')) {
+        userMessage = 'Превышено время ожидания'
+        errorDetails = 'Попробуйте загрузить меньший файл или уменьшите количество уроков'
+      } else if (err?.cause?.issues) {
+        userMessage = 'Ошибка валидации структуры курса'
+        errorDetails = JSON.stringify(err.cause.issues)
+      }
+
       const res = NextResponse.json({
-        error: 'AI генерация не прошла валидацию',
-        details: err?.message || 'Unknown error',
+        error: userMessage,
+        details: errorDetails,
         provider: selectedProvider,
         modelId: selectedModelId,
         traceId
