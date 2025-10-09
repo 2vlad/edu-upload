@@ -119,6 +119,7 @@ export default function HomePage() {
     const formData = new FormData()
     formData.append('files', file)
     formData.append('modelChoice', modelChoice)
+    formData.append('wantsStream', '1') // Backup for streaming preference (in case header is stripped)
     if (existingCourse) formData.append('existingCourse', JSON.stringify(existingCourse))
     if (lessonCount && Number(lessonCount) > 0) formData.append('lessonCount', String(lessonCount))
     if (thesisTemplateText) formData.append('thesisTemplate', thesisTemplateText)

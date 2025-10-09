@@ -108,15 +108,17 @@ export async function POST(request: NextRequest) {
     const lessonCount = lessonCountRaw ? Math.max(1, parseInt(lessonCountRaw)) : null
     const thesisTemplate = (formData.get('thesisTemplate') as string | null)?.trim() || null
 
-    // Debug streaming header
+    // Check streaming preference: first try header, then fall back to FormData field
     const streamHeader = request.headers.get('x-client-stream')
+    const streamFormField = formData.get('wantsStream') as string | null
     log('info', 'Stream header check', {
       streamHeader,
       streamHeaderLower: streamHeader?.toLowerCase(),
+      streamFormField,
       allHeaders: Object.fromEntries(request.headers.entries()),
     })
-    const wantsStream = (streamHeader || '').toLowerCase() === '1'
-    log('info', 'Stream mode decision', { wantsStream })
+    const wantsStream = (streamHeader || '').toLowerCase() === '1' || (streamFormField || '').toLowerCase() === '1'
+    log('info', 'Stream mode decision', { wantsStream, viaHeader: !!streamHeader, viaFormData: !!streamFormField })
 
     const hasImages = files.some(f => f.type?.startsWith('image/'))
     if (hasImages) {
