@@ -709,7 +709,7 @@ export default function HomePage() {
                 <p className="text-sm text-muted-foreground">
                   {files.length} {files.length === 1 ? 'файл' : 'файла'} обрабатывается
                 </p>
-                <p className="text-xs text-muted-foreground/70">Обычно занимает 20–60 сек</p>
+                <p className="text-xs text-muted-foreground/70">Обычно занимает несколько минут</p>
               </div>
             </div>
           </Card>
