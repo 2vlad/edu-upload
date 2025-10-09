@@ -3,6 +3,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { ensureAuthServer } from '@/lib/auth-server'
 import { isSupabaseConfigured } from '@/lib/supabaseClient'
+import { validateAndSanitizeAuthorTone } from '@/lib/sanitize'
 
 /**
  * Course and lesson data types
@@ -14,6 +15,9 @@ export interface Course {
   description: string | null
   slug: string
   published: boolean
+  author_tone: string | null
+  last_validated_at: string | null
+  last_validation_severity: string | null
   created_at: string
   updated_at: string
 }
@@ -64,6 +68,7 @@ export interface Source {
 export async function createCourseFromPayload(payload: {
   title: string
   description: string
+  author_tone?: string
   lessons: Array<{
     title: string
     content: string
@@ -96,6 +101,16 @@ export async function createCourseFromPayload(payload: {
     const session = await ensureAuthServer()
     const userId = session.user.id
 
+    // Validate and sanitize author_tone if provided
+    let sanitizedAuthorTone: string | null = null
+    if (payload.author_tone) {
+      const validation = validateAndSanitizeAuthorTone(payload.author_tone)
+      if (!validation.valid) {
+        return { success: false, error: validation.error }
+      }
+      sanitizedAuthorTone = validation.sanitized || null
+    }
+
     // Generate unique slug
     const baseSlug = payload.title
       .toLowerCase()
@@ -117,6 +132,7 @@ export async function createCourseFromPayload(payload: {
         slug,
         published: false,
         user_id: userId,
+        author_tone: sanitizedAuthorTone,
       })
       .select()
       .single()
@@ -388,6 +404,7 @@ export async function updateCourse(
     title?: string
     description?: string
     published?: boolean
+    author_tone?: string
   }
 ): Promise<{
   success: boolean
@@ -403,9 +420,19 @@ export async function updateCourse(
     const session = await ensureAuthServer()
     const userId = session.user.id
 
+    // Validate and sanitize author_tone if provided
+    const patchToApply: any = { ...patch }
+    if ('author_tone' in patch) {
+      const validation = validateAndSanitizeAuthorTone(patch.author_tone)
+      if (!validation.valid) {
+        return { success: false, error: validation.error }
+      }
+      patchToApply.author_tone = validation.sanitized
+    }
+
     const { data: course, error } = await supabase
       .from('courses')
-      .update(patch)
+      .update(patchToApply)
       .eq('id', courseId)
       .eq('user_id', userId)
       .select()
