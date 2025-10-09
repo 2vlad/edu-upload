@@ -1195,7 +1195,7 @@
         "dependencies": [
           6
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1203,7 +1203,7 @@
             "description": "Add 'Validate Course' button to both individual course pages and course cards in the courses list",
             "dependencies": [],
             "details": "Create a reusable ValidateButton component that triggers validation for a course. Should integrate with existing UI patterns - rounded buttons (30px for primary, 25px for secondary). Add to CoursesList.tsx course cards and to course/page.tsx header. Pass course ID/slug as prop. Include loading state and appropriate icons (CheckCircle, AlertTriangle, etc.).",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test button appears in both locations, handles loading states correctly, passes course data properly"
           },
           {
@@ -1214,7 +1214,7 @@
               1
             ],
             "details": "Build ValidationDialog component using existing Dialog UI pattern from components/ui/dialog.tsx. Include radio buttons or toggle for fast vs deep validation modes. Add descriptive text explaining the difference (fast: structure/links, deep: LLM analysis). Include start validation button and cancel option. Should match existing dialog styling from course/page.tsx edit modal.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test dialog opens from validate button, mode selection works, validation starts correctly, can be cancelled"
           },
           {
@@ -1225,7 +1225,7 @@
               2
             ],
             "details": "Implement ValidationProgress component using existing Progress UI from components/ui/progress.tsx. Show percentage progress bar, current step description, and scrollable log area with streaming updates. Use SSE (Server-Sent Events) to receive progress updates from backend API. Include proper error handling and connection recovery. Style similar to existing progress indicators in app/page.tsx processing flow.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test progress updates in real-time, logs stream correctly, handles connection errors gracefully, progress reaches 100%"
           },
           {
@@ -1236,7 +1236,7 @@
               3
             ],
             "details": "Develop ValidationReport component displaying structured validation results. Use Table UI from components/ui/table.tsx for filterable checks table with columns: Check Type, Status (ok/warning/error), Description, Action. Include severity level badges using Badge UI. Add quick navigation links to problematic lessons. Implement filtering by severity level and check type. Style consistent with existing card layouts from CoursesList.tsx.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test report displays all validation results, filtering works correctly, navigation links jump to appropriate lessons, badges show correct severity"
           },
           {
@@ -1247,7 +1247,7 @@
               4
             ],
             "details": "Extend CoursesList.tsx course cards to display validation badges. Add validation status (ok/warning/error/never) and last validation date near existing metadata (lessons count, update time). Use Badge UI component with appropriate colors (green/yellow/red/gray). Position near existing Calendar and BookOpen icons. Update Course type to include validation fields: last_validated_at, last_validation_severity. Handle cases where course was never validated.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test badges appear on all course cards, show correct status and dates, handle never-validated courses properly, styling integrates well with existing card layout"
           }
         ]
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T11:26:23.425Z",
+      "updated": "2025-10-09T12:31:22.401Z",
       "description": "Tasks for two context"
     }
   }
