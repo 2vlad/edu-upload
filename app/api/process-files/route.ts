@@ -396,7 +396,7 @@ export async function POST(request: NextRequest) {
               expansion_tips: z.array(z.string()).min(2).max(3).optional().describe('Советы по расширению'),
               examples_to_add: z.array(z.string()).min(1).max(2).optional().describe('Примеры'),
             })
-          ).min(3).max(5),
+          ).min(lessonCount || 3).max(lessonCount || 12),
         }),
       })
       courseStructure = result.object
