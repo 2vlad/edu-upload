@@ -1262,7 +1262,7 @@
         "dependencies": [
           2
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1292,7 +1292,7 @@
               2
             ],
             "details": "Create formatAsMarkdown() and formatAsText() functions that convert CourseWithLessons data into properly formatted strings. For markdown: include YAML frontmatter with course metadata (title, author, level, language, tone, lesson count, validation status), format lessons with proper headers and structure. For text: create clean plain text version without markdown syntax. Handle special characters escaping and UTF-8 encoding properly.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Test both formats generate correctly structured output, metadata included properly, special characters escaped, UTF-8 encoding preserved"
           },
           {
@@ -1303,7 +1303,7 @@
               3
             ],
             "details": "Implement single file mode that combines all lessons into one file with course metadata. For markdown: use YAML frontmatter with complete course info followed by all lessons with proper numbering (01-intro, 02-lesson-name, etc.). For text: create structured plain text with clear section separators. Generate appropriate filename based on course title and format. Set proper content-type headers and handle file download response.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test single file contains all lessons, proper metadata, correct filename generation, download headers set correctly"
           },
           {
@@ -1314,7 +1314,7 @@
               3
             ],
             "details": "Use jszip to create ZIP packages containing individual lesson files (01-intro.md, 02-advanced-concepts.md, etc.) and a README file with course metadata. Generate proper filenames from lesson titles (slugified), ensure each file has appropriate content headers. Create README with course overview and lesson index. Handle ZIP generation, compression, and binary response with proper content-type headers. Ensure UTF-8 encoding throughout the ZIP creation process.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Test ZIP files contain proper structure, individual lesson files formatted correctly, README includes metadata, filenames properly slugified, UTF-8 encoding maintained"
           }
         ]
@@ -1459,7 +1459,7 @@
     ],
     "metadata": {
       "created": "2025-10-08T19:53:58.056Z",
-      "updated": "2025-10-09T12:38:52.785Z",
+      "updated": "2025-10-09T12:43:11.258Z",
       "description": "Tasks for two context"
     }
   }
