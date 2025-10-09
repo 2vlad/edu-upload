@@ -94,13 +94,18 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   type ProgressUpdater = number | ((prev: number) => number)
 
-  const setProgress = useCallback((value: ProgressUpdater, opts?: { real?: boolean }) => {
+  const setProgress = useCallback((value: ProgressUpdater, opts?: { real?: boolean; allowDecrease?: boolean }) => {
     setProcessingProgress((prev) => {
-      const next = typeof value === 'function' ? value(prev) : value
+      const raw = typeof value === 'function' ? value(prev) : value
+      const bounded = typeof raw === 'number' ? Math.max(0, Math.min(100, raw)) : raw
+      const next = typeof bounded === 'number'
+        ? (opts?.allowDecrease ? bounded : Math.max(prev, bounded))
+        : bounded
+
       if (typeof next === 'number' && (opts?.real ?? true)) {
         lastRealProgressRef.current = performance.now()
       }
-      return next
+      return typeof next === 'number' ? next : prev
     })
   }, [setProcessingProgress])
   // Model selection: "chatgpt5" | "sonnet4"
@@ -568,7 +573,7 @@ export default function HomePage() {
 
     setIsProcessing(true)
     setError(null)
-    setProgress(0)
+    setProgress(0, { allowDecrease: true })
     setProcessingMessage("Начинаем обработку...")
     setEtaMs(null)
     setStage('upload')
@@ -662,7 +667,7 @@ export default function HomePage() {
       console.error("Error creating course:", error)
       setError(error instanceof Error ? error.message : "Произошла ошибка при создании курса")
       setIsProcessing(false)
-      setProgress(0)
+      setProgress(0, { allowDecrease: true })
       setStage('idle')
     }
   }
