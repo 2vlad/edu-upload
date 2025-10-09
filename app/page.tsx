@@ -155,6 +155,7 @@ export default function HomePage() {
       let lastIndex = 0
       let resultData: any = null
       let streamError: string | null = null
+      let lineBuffer = '' // Buffer for incomplete JSON lines across chunks
       const stageOrderLocal: Stage[] = ['upload','extract','analyze','generate','finalize'] as any
       const weightBeforeStage = (st: Stage) => {
         const idx = stageOrderLocal.indexOf(st)
@@ -166,9 +167,20 @@ export default function HomePage() {
         const text = xhr.responseText || ''
         const chunk = text.slice(lastIndex)
         lastIndex = text.length
-        const lines = chunk.split('\n').filter(Boolean)
-        console.debug('[ndjson:chunk]', { chunkLength: chunk.length, linesCount: lines.length, totalLength: text.length })
+
+        // Add chunk to buffer and split by newlines
+        lineBuffer += chunk
+        const lines = lineBuffer.split('\n')
+
+        // Last element might be incomplete, keep it in buffer
+        lineBuffer = lines.pop() || ''
+
+        console.debug('[ndjson:chunk]', { chunkLength: chunk.length, completeLines: lines.length, bufferSize: lineBuffer.length, totalLength: text.length })
+
         for (const line of lines) {
+          // Skip empty lines (heartbeat)
+          if (!line.trim()) continue
+
           try {
             const evt = JSON.parse(line)
             console.debug('[ndjson:event]', evt)
@@ -222,6 +234,22 @@ export default function HomePage() {
       }
 
       xhr.onload = () => {
+        // Process any remaining buffered line
+        if (lineBuffer.trim()) {
+          try {
+            const evt = JSON.parse(lineBuffer)
+            console.debug('[ndjson:event:final]', evt)
+            if (evt.event === 'complete') {
+              resultData = evt.result
+              setProcessingProgress(100)
+              setStage('done')
+              console.debug('[ndjson:complete]', { durationMs: evt.durationMs, hasResult: !!evt.result, lessonsCount: evt.result?.lessons?.length })
+            }
+          } catch (e) {
+            console.warn('[ndjson:parse-error:final]', { line: lineBuffer.substring(0, 200), error: String(e) })
+          }
+        }
+
         // If stream error occurred, reject with that error
         if (streamError) {
           console.error('[upload:load] stream error detected', streamError)
@@ -231,7 +259,7 @@ export default function HomePage() {
 
         const ct = xhr.getResponseHeader('content-type') || ''
         const json = ct.includes('application/json') ? ((): any => { try { return JSON.parse(xhr.responseText) } catch { return null } })() : null
-        console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json })
+        console.debug('[upload:load]', { status: xhr.status, ct, hasJson: !!json, hasResultData: !!resultData })
         if (xhr.status >= 200 && xhr.status < 300) {
           // Если upload-прогресс не пришёл (очень маленькие файлы), слегка подвинем шкалу
           setProcessingProgress((prev) => (prev < (weightUpload * 100 * 0.5) ? weightUpload * 100 * 0.5 : prev))
