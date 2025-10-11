@@ -5,6 +5,14 @@ import { ensureAuthServer, isAdminServer } from '@/lib/auth-server'
 import { isSupabaseConfigured } from '@/lib/supabaseClient'
 import { validateAndSanitizeAuthorTone } from '@/lib/sanitize'
 
+function isMissingAuthorToneColumn(error: any): boolean {
+  if (!error) return false
+  if (error.code === 'PGRST204' && typeof error.message === 'string') {
+    return error.message.includes("'author_tone' column")
+  }
+  return typeof error.message === 'string' && error.message.includes("author_tone")
+}
+
 /**
  * Course and lesson data types
  */
@@ -124,18 +132,32 @@ export async function createCourseFromPayload(payload: {
     const slug = `${baseSlug}-${timestamp}`
 
     // Create course
-    const { data: course, error: courseError } = await supabase
-      .from('courses')
-      .insert({
-        title: payload.title,
-        description: payload.description,
-        slug,
-        published: false,
-        user_id: userId,
-        author_tone: sanitizedAuthorTone,
-      })
-      .select()
-      .single()
+    const courseInsertPayload: Record<string, any> = {
+      title: payload.title,
+      description: payload.description,
+      slug,
+      published: false,
+      user_id: userId,
+    }
+
+    if (sanitizedAuthorTone !== null) {
+      courseInsertPayload.author_tone = sanitizedAuthorTone
+    }
+
+    const insertCourse = async (payloadToInsert: Record<string, any>) =>
+      supabase.from('courses').insert(payloadToInsert).select().single()
+
+    let insertResult = await insertCourse(courseInsertPayload)
+
+    if (insertResult.error && isMissingAuthorToneColumn(insertResult.error) && 'author_tone' in courseInsertPayload) {
+      const { author_tone: _omit, ...fallbackPayload } = courseInsertPayload
+      insertResult = await insertCourse(fallbackPayload)
+      if (!insertResult.error && insertResult.data) {
+        insertResult.data.author_tone = sanitizedAuthorTone
+      }
+    }
+
+    const { data: course, error: courseError } = insertResult
 
     if (courseError) {
       console.error('Course creation error:', courseError)
@@ -480,13 +502,26 @@ export async function updateCourse(
       patchToApply.author_tone = validation.sanitized
     }
 
-    const { data: course, error } = await supabase
-      .from('courses')
-      .update(patchToApply)
-      .eq('id', courseId)
-      .eq('user_id', userId)
-      .select()
-      .single()
+    const updateCourse = (payloadToUpdate: Record<string, any>) =>
+      supabase
+        .from('courses')
+        .update(payloadToUpdate)
+        .eq('id', courseId)
+        .eq('user_id', userId)
+        .select()
+        .single()
+
+    let updateResult = await updateCourse(patchToApply)
+
+    if (updateResult.error && isMissingAuthorToneColumn(updateResult.error) && 'author_tone' in patchToApply) {
+      const { author_tone: _omit, ...fallbackPatch } = patchToApply
+      updateResult = await updateCourse(fallbackPatch)
+      if (!updateResult.error && updateResult.data) {
+        updateResult.data.author_tone = patchToApply.author_tone ?? null
+      }
+    }
+
+    const { data: course, error } = updateResult
 
     if (error) {
       console.error('Error updating course:', error)
